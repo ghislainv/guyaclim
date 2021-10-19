@@ -53,7 +53,8 @@ ymin <- (floor(bb_utm$ymin/1000)-5)*1000
 ymax <- (ceiling(bb_utm$ymax/1000)+5)*1000
 
 # Print extent (xmin, xmax, ymin, ymax)
+msg <- "Extent of French Guyana in UTM32N (epsg: 32622):"
 extent <- glue("xmin: {xmin}, xmax: {xmax}, ymin: {ymin}, ymax: {ymax}")
-writeLines(extent, here("output", "extent.txt"))
+writeLines(c(msg, extent), here("output", "extent.txt"))
 
 # End

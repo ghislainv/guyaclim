@@ -1,1 +1,2 @@
+Extent of French Guyana in UTM32N (epsg: 32622):
 xmin: 1e+05, xmax: 435000, ymin: 230000, ymax: 642000
