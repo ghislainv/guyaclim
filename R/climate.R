@@ -1,4 +1,5 @@
 library(here)
+
 # Standard (19) WorldClim Bioclimatic variables for WorldClim version 2.1. 
 # They are the average for the years 1970-2000 at 30 seconds (~1 km2).
 # Download a "zip" file containing 19 GeoTiff (.tif) files, one for each variable : 
