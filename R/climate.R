@@ -23,28 +23,28 @@ library(here)
 # BIO18 = Precipitation of Warmest Quarter 
 # BIO19 = Precipitation of Coldest Quarter
 download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_30s_bio.zip',
-              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_bio.zip"), method = 'wget')
+              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_bio.zip"), method = 'auto')
 
 # Download "zip" files containing 12 GeoTiff (.tif) files, one for each month of the year (January is 1; December is 12).
 # From WorldClim version 2.1 at 30 seconds (~1 km2).
 ## Monthly minimum temperature (°C).
 download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_30s_tmin.zip',
-              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_tmin.zip"), method = 'wget')
+              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_tmin.zip"), method = 'auto')
 ## Monthly maximum temperature (°C).
 download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_30s_tmax.zip',
-              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_tmax.zip"), method = 'wget')
+              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_tmax.zip"), method = 'auto')
 ## Average temperature (°C).
 download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_30s_tavg.zip',
-              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_tavg.zip"), method = 'wget')
+              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_tavg.zip"), method = 'auto')
 ## Precipitation (mm).
 download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_30s_prec.zip',
-              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_prec.zip"), method = 'wget')
+              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_prec.zip"), method = 'auto')
 ## Solar radiation (kJ m^-2 day^-1).
 download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_30s_srad.zip',
-              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_srad.zip"), method = 'wget')
+              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_srad.zip"), method = 'auto')
 ## Wind speed (m s^-1)
 download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_30s_wind.zip',
-              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_wind.zip"), method = 'wget')
+              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_wind.zip"), method = 'auto')
 ## Water vapor pressure (kPa)
 download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_30s_vapr.zip',
-              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_vapr.zip"), method = 'wget')
+              destfile=here("data_raw","worldclim_v2_1","wc2.1_30s_vapr.zip"), method = 'auto')
