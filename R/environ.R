@@ -12,3 +12,4 @@ download.file("https://srtm.csi.cgiar.org/wp-content/uploads/files/srtm_5x5/TIFF
               destfile=here("data_raw", "srtm_v1_4_90m", "srtm_26_12.zip"), method = 'auto')
 
 # Reproject
+#

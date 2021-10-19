@@ -1,7 +1,7 @@
 # Data
 data_raw/worldclim_v2_1/*.zip
 data_raw/tmf_ec_jrc/*.tif
-data_raw/srtm_v1_4_90m
+data_raw/srtm_v1_4_90m/*.zip
 
 # History files
 .Rhistory
