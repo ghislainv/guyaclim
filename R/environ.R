@@ -32,8 +32,7 @@ library(rgdal)
 library(rgrass7)
 
 ## gdalwrap options
-# from output/extent.txt
-Extent <- "100000 230000 435000 642000"
+Extent <- readLines(here("output/extent_short.txt"))
 Res <- "1000"
 nodat <- "-9999"
 proj.s <- "EPSG:4326"
