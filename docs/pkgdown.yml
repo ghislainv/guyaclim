@@ -1,0 +1,8 @@
+pandoc: 2.11.2
+pkgdown: 1.6.1
+pkgdown_sha: ~
+articles:
+  Code_of_conduct: Code_of_conduct.html
+  Contributing: Contributing.html
+last_built: 2021-10-20T20:30Z
+

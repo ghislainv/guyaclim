@@ -1,0 +1,41 @@
+Package: guyaclim
+Title: Climatic and Environmental Data for French Guiana
+Version: 0.0.1
+Date: 2021-10-20
+Authors@R: c(
+  person("Jeanne", "Clément", role=c("aut", "cre"),
+         email="jeanne.clement16@laposte.net",
+         comment=c(ORCID="0000-0002-5228-5015")),
+  person("Ghislain", "Vieilledent", role=c("aut"),
+         email="ghislain.vieilledent@cirad.fr",
+         comment=c(ORCID="0000-0002-1685-4997")),
+  person("Gaëlle", "Jaouen", role="aut",
+         email="gaelle.jaouen@ecofog.gf",
+         comment=c(ORCID = "0000-0002-5655-9044")),
+  person("Clément", "Stahl", role="aut",
+         email="clement.stahl@ecofog.gf",
+         comment=c(ORCID = "0000-0001-5411-1169")),
+  person("AMAP", role=c("cph", "fnd")),
+  person("EcoFoG", role=c("cph", "fnd")),
+  person("CEBA", role=c("cph", "fnd")))
+Maintainer: Jeanne Clément <jeanne.clement16@laposte.net>
+Description: guyaclim provides a set of climatic and environmental data
+    for French Guiana that can be used for ecological analyses. Data come
+    from a variety of sources (WorldClim, Chelsa, and Metéo France for the 
+    climate; SRTM, BRGM, and various research projects for the environment).
+    Climatic and environmental data are available as multiband raster files at
+    1km resolution in the geographic projection UTM 22N (epsg: 32622) and
+    cover all the territory of French Guiana (extent of the rasters is
+    xmin=100000, ymin=230000, xmax=435000, ymax=642000).
+URL: https://ecology.ghislainv.fr/guyaclim, https://github.com/ghislainv/guyaclim
+BugReports: https://github.com/ghislainv/guyaclim/issues
+License: GPL-3 | file LICENSE
+Encoding: UTF-8
+Depends: R (>= 3.5.0)
+Imports: rmarkdown, bookdown, ggplot2, utils
+Suggests: knitr, kableExtra, sf, star, dplyr, rmarkdown, bookdown,
+          testthat
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.2
+VignetteBuilder: knitr
+SystemRequirements: GDAL, GRASS GIS, pandoc

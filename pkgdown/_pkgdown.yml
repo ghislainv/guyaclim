@@ -1,0 +1,47 @@
+authors:
+  Jeanne Clément:
+    href: "https://amap.cirad.fr/en/DYAFOR.php"
+  Ghislain Vieilledent:
+    href: "https://ecology.ghislainv.fr"
+  Gaëlle Jaouen:
+    href: "https://www.researchgate.net/profile/Gaelle-Jaouen"
+  Clément Stahl:
+    href: "http://www.ecofog.gf/spip.php?article965"
+  AMAP:
+    href: "https://amap.cirad.fr"
+    html: "<img src='https://ecology.ghislainv.fr/images/logos/logo-cirad.svg' height=24>"
+  EcoFoG:
+    href: "http://www.ecofog.gf"
+    html: "<img src='https://ecology.ghislainv.fr/images/logos/logo-cirad.svg' height=24>"
+  CEBA:
+    href: "http://www.labex-ceba.fr"
+    html: "<img src='https://ecology.ghislainv.fr/images/logos/logo-cirad.svg' height=24>"
+
+navbar:
+  structure:
+    left: [home, intro, reference, articles, news]
+    right: [github]
+  components:
+    home:
+      icon: fa-home fa-lg
+      href: index.html
+    links:
+      - text: Contributing
+        href: articles/Contributing.html
+      - text: Code of conduct
+        href: articles/Code_of_conduct.html
+    intro:
+      text: Get started
+      href: articles/guyaclim.html
+    articles:
+      text: Articles
+      href: articles/index.html
+    reference:
+      text: Reference
+      href: reference/index.html
+    news:
+      text: News
+      href: news/index.html
+    github:
+      icon: fab fa-github fa-lg
+      href: https://github.com/ghislainv/guyaclim

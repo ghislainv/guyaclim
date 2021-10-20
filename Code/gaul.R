@@ -47,14 +47,18 @@ bb_utm <- bb_ll %>%
   st_bbox()
 
 # Bounding box for French Guiana
-xmin <- (floor(bb_utm$xmin/1000)-5)*1000
-xmax <- (ceiling(bb_utm$xmax/1000)+5)*1000
-ymin <- (floor(bb_utm$ymin/1000)-5)*1000
-ymax <- (ceiling(bb_utm$ymax/1000)+5)*1000
+xmin <- as.integer((floor(bb_utm$xmin/1000)-5)*1000)
+xmax <- as.integer((ceiling(bb_utm$xmax/1000)+5)*1000)
+ymin <- as.integer((floor(bb_utm$ymin/1000)-5)*1000)
+ymax <- as.integer((ceiling(bb_utm$ymax/1000)+5)*1000)
 
-# Print extent (xmin, xmax, ymin, ymax)
+# Print extent with description (xmin, ymin, xmax, ymax)
 msg <- "Extent of French Guyana in UTM32N (epsg: 32622):"
-extent <- glue("xmin: {xmin}, xmax: {xmax}, ymin: {ymin}, ymax: {ymax}")
+extent <- glue("xmin: {xmin}, ymin: {ymin}, xmax: {xmax}, ymax: {ymax}")
 writeLines(c(msg, extent), here("output", "extent.txt"))
+
+# Print extent (xmin, ymin, xmax, ymax)
+extent <- glue("{xmin} {ymin} {xmax} {ymax}")
+writeLines(extent, here("output", "extent_short.txt"))
 
 # End
