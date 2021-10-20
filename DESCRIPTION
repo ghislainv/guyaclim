@@ -1,0 +1,38 @@
+Package: guyaclim
+Title: Providing Climatic and Environmental Data for French Guyana
+Version: 0.1
+Authors@R: c(
+  person("Jeanne", "Clément", role=c("aut"),
+         email="jeanne.clement16@laposte.net",
+         comment=c(ORCID="0000-0002-5228-5015")),
+  person("Ghislain", "Vieilledent", role=c("aut", "cre"),
+         email="ghislain.vieilledent@cirad.fr",
+         comment=c(ORCID="0000-0002-1685-4997")),
+  person("Gaëlle", "Jaouen", role="aut",
+         email="gaelle.jaouen@ecofog.gf",
+         comment=c(ORCID = "0000-0002-5655-9044")),
+  person("Clément", "Stahl", role="aut",
+         email="clement.stahl@ecofog.gf",
+         comment=c(ORCID = "0000-0001-5411-1169")),
+  person("AMAP", role=c("cph", "fnd"))),
+  person("Ecofog", role=c("cph", "fnd"))),
+  person("CEBA", role=c("cph", "fnd")))
+Maintainer: Jeanne Clément <jeanne.clement16@laposte.net>
+Description: MadaClim provides a set of climatic and environmental rasters
+    for French Guiana that can be used for ecological analyses. Data comes
+    from a variety of sources (WorldClim, Chelsa, Metéo France for the climate,
+    and SRTM, BRGM, various research projects for the envronment). Rasters are
+    available at 1km resolution in UTM 22N (epsg: 32622) and cover all the
+    territory of French Guiana (extent is xmin=100000, ymin=230000,
+    xmax=435000, ymax=642000).
+URL: https://ecology.ghislainv.fr/guyaclim
+BugReports: https://github.com/ghislainv/guyaclim/issues
+License: GPL-3 | file LICENSE
+Encoding: UTF-8
+Depends: R (>= 3.5.0)
+Imports: rmarkdown, bookdown, ggplot2, utils
+Suggests: testthat, knitr, pkgdown, kableExtra, dplyr, tidyr
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.2
+VignetteBuilder: knitr
+SystemRequirements: pandoc
