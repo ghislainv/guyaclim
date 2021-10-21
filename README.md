@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# `guyaclim` R Package <img src="man/figures/logo.png" align="right" alt="" width="120" />
+# `guyaclim` R Package <img src="man/figures/logo.svg" align="right" alt="" width="120" />
 
 [![R-CMD-check](https://github.com/ghislainv/guyaclim/workflows/R-CMD-check/badge.svg)](https://github.com/ghislainv/guyaclim/actions)
 

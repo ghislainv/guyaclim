@@ -15,9 +15,8 @@ Authors@R: c(
   person("Clément", "Stahl", role="aut",
          email="clement.stahl@ecofog.gf",
          comment=c(ORCID = "0000-0001-5411-1169")),
-  person("AMAP", role=c("cph", "fnd")),
-  person("EcoFoG", role=c("cph", "fnd")),
-  person("CEBA", role=c("cph", "fnd")))
+  person("Cirad", role=c("cph")),
+  person("CEBA", role=c("fnd")))
 Maintainer: Jeanne Clément <jeanne.clement16@laposte.net>
 Description: guyaclim provides a set of climatic and environmental data
     for French Guiana that can be used for ecological analyses. Data come
