@@ -95,12 +95,12 @@ system(cmd)
 # Solar radiation was computed for the Julian day 79 (20th of March for regular years=equinox).
 ## Initialize GRASS
 setwd(here("data_raw"))
-Sys.setenv(LD_LIBRARY_PATH=paste("/usr/lib/grass76/lib", Sys.getenv("LD_LIBRARY_PATH"),sep=":"))
+Sys.setenv(LD_LIBRARY_PATH=paste("/usr/lib/grass78/lib", Sys.getenv("LD_LIBRARY_PATH"),sep=":"))
 # use a georeferenced raster
 elevation <- here("data_raw", "srtm_v1_4_90m", "temp", "elevation.tif")
 system(glue('grass -c {elevation} grassdata/environ'))
 # connect to grass database
-initGRASS(gisBase="/usr/lib/grass76", 
+initGRASS(gisBase="/usr/lib/grass78", 
           gisDbase="grassdata", home=tempdir(), 
           location="environ", mapset="PERMANENT",
           override=TRUE)
@@ -150,3 +150,9 @@ cmd <- glue('gdalwarp -srcnodata -32767 -dstnodata -32767 -s_srs {proj.t} -t_srs
         -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff \\
         -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}')
 system(cmd)
+
+# Distance to coast
+# gdal.proximity
+# Distance to river 
+# Distance to road
+# Perturbation probability (forestatrisk)
