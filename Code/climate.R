@@ -12,14 +12,6 @@
 ## gdal library is needed to run this script
 ## http://www.gdal.org/
 
-## gdalwrap options
-# from output/extent.txt
-Extent <- "100000 230000 435000 642000"
-Res <- "1000"
-nodat <- "-9999"
-proj.s <- "EPSG:4326"
-proj.t <- "EPSG:32622"
-
 # Libraries
 library(glue)
 library(here)
@@ -29,6 +21,14 @@ library(stars)
 library(rgdal)
 library(insol) # for function daylength
 library(rgrass7)
+
+## gdalwrap options
+# from output/extent.txt
+Extent <- "100000 230000 435000 642000"
+Res <- "1000"
+nodat <- "-9999"
+proj.s <- "EPSG:4326"
+proj.t <- "EPSG:32622"
 
 ## Create some directories
 dir.create(here("data_raw","worldclim_v2_1","temp")) ## Temporary folder
@@ -55,7 +55,7 @@ download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_30s_wind
 download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_30s_vapr.zip',
               destfile=here("data_raw", "worldclim_v2_1", "wc2.1_30s_vapr.zip"), method = 'auto')
 
-# Compute standard (19) WorldClim Bioclimatic variables from monthly Tmin, Tmax, Tavg and Prec of WorldClim version 2.1. 
+# Compute standard (19) WorldClim Bioclimatic variables from monthly Tmin, Tmax, Tavg and Prec of WorldClim version 2.1.
 # Using the function r.bioclim from the GRASS GIS software.
 # BIO1 = Annual Mean Temperature
 # BIO2 = Mean Diurnal Range (Mean of monthly (max temp - min temp))
@@ -74,7 +74,7 @@ download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_30s_vapr
 # BIO15 = Precipitation Seasonality (Coefficient of Variation)
 # BIO16 = Precipitation of Wettest Quarter
 # BIO17 = Precipitation of Driest Quarter
-# BIO18 = Precipitation of Warmest Quarter 
+# BIO18 = Precipitation of Warmest Quarter
 # BIO19 = Precipitation of Coldest Quarter
 
 ## Unzip worldclim 30s monthly Tmin, Tmax, Tavg and Prec.
@@ -112,6 +112,7 @@ writeRaster(bioclim, type="Int16", options = c("COMPRESS=LZW","PREDICTOR=2"),
             filename=here("data_raw","worldclim_v2_1","wc2.1_30s_crop_bio.tif"))
 ## Initialize GRASS
 setwd(here("data_raw"))
+dir.create("grassdata")
 Sys.setenv(LD_LIBRARY_PATH=paste("/usr/lib/grass78/lib", Sys.getenv("LD_LIBRARY_PATH"),sep=":"))
 # use a georeferenced raster
 system(glue('grass -c {proj.s} grassdata/climate'))
@@ -123,9 +124,15 @@ initGRASS(gisBase="/usr/lib/grass78",
 ## Import raster in grass
 files.tif <- list.files(here("data_raw", "worldclim_v2_1", "temp"), pattern="tif", full.names=TRUE)
 for(i in 1:length(files.tif)){
-system(glue("r.in.gdal --o input={files.tif[i]} \\
+  system(glue("r.in.gdal --o input={files.tif[i]} \\
             output={gsub('here('data_raw', 'worldclim_v2_1', 'temp'), wc2.1_30s_crop_', '', files.tif[i])}"))
 }
+# Install the r.bioclim extension
+# In the terminal:
+# > grass grassdata/guyaclim/PERMANENT
+# > g.extension r.bioclim
+# Check installation
+system("g.extension -a")
 ## Compute standard (19) WorldClim Bioclimatic using the function r.bioclim
 system("r.bioclim tmin=`g.list type=rast pat=tmin_* map=. sep=,` tmax=`g.list type=rast pat=tmax_* map=. sep=,` prec=`g.list type=rast pat=prec_* map=. sep=,` out=wc2.1_30s_ workers=4 quartals=12")
 # r.bioclim not found 

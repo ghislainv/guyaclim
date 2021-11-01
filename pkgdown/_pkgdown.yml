@@ -7,15 +7,12 @@ authors:
     href: "https://www.researchgate.net/profile/Gaelle-Jaouen"
   Clément Stahl:
     href: "http://www.ecofog.gf/spip.php?article965"
-  AMAP:
-    href: "https://amap.cirad.fr"
-    html: "<img src='https://ecology.ghislainv.fr/images/logos/logo-cirad.svg' height=24>"
-  EcoFoG:
-    href: "http://www.ecofog.gf"
-    html: "<img src='https://ecology.ghislainv.fr/images/logos/logo-cirad.svg' height=24>"
+  Cirad:
+    href: "https://www.cirad.fr"
+    html: "<img src='reference/figures/logo-cirad.svg' height=24>"
   CEBA:
     href: "http://www.labex-ceba.fr"
-    html: "<img src='https://ecology.ghislainv.fr/images/logos/logo-cirad.svg' height=24>"
+    html: "<img src='reference/figures/Logo_CEBA_simple.jpg' height=24>"
 
 navbar:
   structure:
