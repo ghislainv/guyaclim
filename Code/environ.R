@@ -1,6 +1,6 @@
 ##=====================================================
 ##
-## Environmental data for Guyane
+## Environmental data for French Guyana
 ##
 ## Ghislain Vieilledent <ghislain.vieilledent@cirad.fr>
 ## Jeanne Clément <jeanne.clement@cirad.fr>
@@ -38,10 +38,12 @@ nodat <- "-9999"
 proj.s <- "EPSG:4326"
 proj.t <- "EPSG:32622"
 
-# Download forest cover of Guyane in 2000 from tmf_ec_jrc (see note)
+#===== Forest cover #=======
+# Download forest cover of Guyana in 2000 from tmf_ec_jrc (see note)
 download.file("https://drive.google.com/uc?export=download&id=1FBL_Jy8QRi-wtG3rcsKZoJldzkwHyKn9",
               destfile=here("data_raw", "tmf_ec_jrc", "forest_t3.tif"), method = 'auto', mode="wb")
 
+#====== Elevation, slope aspect, roughness #======
 # SRTM at 90m resolution from https://dwtkns.com/srtm/ version 4.1
 ## Download and unzip CGIAR-CSI 90m DEM data
 tiles <- c("26_11","26_12")
@@ -86,8 +88,33 @@ system(cmd)
 out_f <- here("data_raw", "srtm_v1_4_90m", "temp", "roughness.tif")
 cmd <- glue('gdaldem roughness {in_f} {out_f} -co "COMPRESS=LZW" -co "PREDICTOR=2"')
 system(cmd)
+# Resolution from 90m x 90m to 1000m x 1000m using gdalwarp
+# elevation
+out_f <- here("data_raw", "srtm_v1_4_90m", "elevation_1km.tif")
+cmd <- glue('gdalwarp -srcnodata -32767 -dstnodata -32767 -r bilinear -tr 1000 1000 -te {Extent} \\
+        -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}')
+system(cmd)
+# aspect
+in_f <- here("data_raw", "srtm_v1_4_90m", "temp", "aspect.tif")
+out_f <-here("data_raw", "srtm_v1_4_90m", "aspect_1km.tif")
+cmd <- glue('gdalwarp -srcnodata {nodat} -dstnodata -32767 -r bilinear -tr 1000 1000 -te {Extent} \\
+        -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}')
+system(cmd)
+# slope
+in_f <- here("data_raw", "srtm_v1_4_90m", "temp", "slope.tif")
+out_f <- here("data_raw", "srtm_v1_4_90m", "slope_1km.tif")
+cmd <- glue('gdalwarp -srcnodata {nodat} -dstnodata -32767 -r bilinear -tr 1000 1000 -te {Extent} \\
+        -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}')
+system(cmd)
+# roughness
+in_f <- here("data_raw", "srtm_v1_4_90m", "temp", "roughness.tif")
+out_f <- here("data_raw", "srtm_v1_4_90m", "roughness_1km.tif")
+cmd <- glue('gdalwarp -srcnodata {nodat} -dstnodata -32767 \\
+        -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff \\
+        -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}')
+system(cmd)
 
-#=== Compute radiation =====
+#=== Solar radiation =====
 # with r.sun at 90m resolution 
 # Solar radiation (in Wh.m-2.day-1) was computed from altitude,
 # slope and aspect using the function r.sun from the GRASS GIS software.
@@ -117,32 +144,7 @@ system(cmd)
 system(glue("r.out.gdal -f --overwrite input=global_rad \\
   			 output={here('data_raw', 'srtm_v1_4_90m', 'temp', 'srad.tif')} type=Int16 nodata=-32767 \\
   			 createopt='compress=lzw,predictor=2'"))
-
 # Resolution from 90m x 90m to 1000m x 1000m using gdalwarp
-# elevation
-out_f <- here("data_raw", "srtm_v1_4_90m", "elevation_1km.tif")
-cmd <- glue('gdalwarp -srcnodata -32767 -dstnodata -32767 -r bilinear -tr 1000 1000 -te {Extent} \\
-        -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}')
-system(cmd)
-# aspect
-in_f <- here("data_raw", "srtm_v1_4_90m", "temp", "aspect.tif")
-out_f <-here("data_raw", "srtm_v1_4_90m", "aspect_1km.tif")
-cmd <- glue('gdalwarp -srcnodata {nodat} -dstnodata -32767 -r bilinear -tr 1000 1000 -te {Extent} \\
-        -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}')
-system(cmd)
-# slope
-in_f <- here("data_raw", "srtm_v1_4_90m", "temp", "slope.tif")
-out_f <- here("data_raw", "srtm_v1_4_90m", "slope_1km.tif")
-cmd <- glue('gdalwarp -srcnodata {nodat} -dstnodata -32767 -r bilinear -tr 1000 1000 -te {Extent} \\
-        -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}')
-system(cmd)
-# roughness
-in_f <- here("data_raw", "srtm_v1_4_90m", "temp", "roughness.tif")
-out_f <- here("data_raw", "srtm_v1_4_90m", "roughness_1km.tif")
-cmd <- glue('gdalwarp -srcnodata {nodat} -dstnodata -32767 \\
-        -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff \\
-        -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}')
-system(cmd)
 # srad
 in_f <- here("data_raw", "srtm_v1_4_90m", "temp", "srad.tif")
 out_f <- here("data_raw", "srtm_v1_4_90m", "srad_1km.tif")
