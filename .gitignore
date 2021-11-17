@@ -1,5 +1,6 @@
 # Data
 data_raw/worldclim_v2_1/*.zip
+data_raw/worldclim_v2_1/files
 data_raw/worldclim_v2_1/*.tif
 data_raw/worldclim_v2_1/temp
 data_raw/tmf_ec_jrc/*.tif
