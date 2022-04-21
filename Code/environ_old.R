@@ -190,8 +190,8 @@ system("r.resamp.stats input=for2010 output=forest_n method=sum")
 system("r.resamp.stats input=Mada output=land_n method=sum")
 ## Mada 1km
 system("r.mapcalc 'mada_1km = Mada'")
-## Correction Mada if land_n > 555 (more than 50% of the 1km cell is covered by land)
-## Indeed, 555*30*30 = 499500 km2 and 556*30*30 = 500400 km2
+## Correction Mada if land_n > 555 (more than 50% of the 1km2 cell is covered by land)
+## Indeed, 555*30*30 = 499500 m2 and 556*30*30 = 500400 m2
 system("r.mapcalc --o 'mada_1km = if(land_n>555 &&& !isnull(land_n),1,mada_1km)'")
 ## Percentage of forest
 system("r.mask 'mada_1km'")

@@ -36,12 +36,8 @@ Extent <- readLines(here("output/extent_short.txt"))
 Res <- "1000"
 nodat <- "-9999"
 proj.s <- "EPSG:4326"
-proj.t <- "EPSG:32622"
-
-#===== Forest cover #=======
-# Download forest cover of Guyana in 2000 from tmf_ec_jrc (see note)
-download.file("https://drive.google.com/uc?export=download&id=1FBL_Jy8QRi-wtG3rcsKZoJldzkwHyKn9",
-              destfile=here("data_raw", "tmf_ec_jrc", "forest_t3.tif"), method = 'auto', mode="wb")
+proj.t <- "EPSG:2972"
+# "EPSG:32622" not legal projection
 
 #====== Elevation, slope aspect, roughness #======
 # SRTM at 90m resolution from https://dwtkns.com/srtm/ version 4.1
@@ -51,7 +47,7 @@ for (i in 1:length(tiles)) {
   dst <- paste0(here("data_raw", "srtm_v1_4_90m","srtm_"),tiles[i],".zip")
   if (down) {
     url.tile <- paste0("https://srtm.csi.cgiar.org/wp-content/uploads/files/srtm_5x5/TIFF/srtm_",tiles[i],".zip")
-    download.file(url=url.tile,destfile=dst,method="auto",quiet=TRUE)
+    download.file(url=url.tile,destfile=dst,method="wget",quiet=TRUE)
   }
   unzip(dst,exdir=here("data_raw", "srtm_v1_4_90m"),overwrite=TRUE)
 }
@@ -68,7 +64,7 @@ system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} -srcnodata -327
         -r bilinear -tr 90 90 -te {Extent} -ot Int16 -of GTiff \\
         {sourcefile} \\
         {destfile}"))
-# elev <- read_stars(here("data_raw", "srtm_v1_4_90m", "temp", "elevation.tif"))
+#elev <- read_stars(here("data_raw", "srtm_v1_4_90m", "temp", "elevation.tif"))
 # border <- st_read(here("data_raw","fao_gaul","FAO_GAUL_GUY.kml"))
 # border <- st_transform(border,crs=st_crs(elev))
 # plot(elev,axes=TRUE,reset = FALSE)
@@ -153,6 +149,45 @@ cmd <- glue('gdalwarp -srcnodata -32767 -dstnodata -32767 -s_srs {proj.t} -t_srs
         -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}')
 system(cmd)
 
+##==========================================================
+##
+## Forest: percentage of forest in 1km2
+##
+##==========================================================
+
+## References:
+## (1) Forestatrisk project: https://forestatrisk.cirad.fr/rawdata.html
+
+## Create directory
+dir.create(here("data_raw","tmf_ec_jrc"))
+
+# Download forest cover of Guyana in 2000 from tmf_ec_jrc (see note)
+if (down) {
+  download.file("https://drive.google.com/uc?export=download&id=1FBL_Jy8QRi-wtG3rcsKZoJldzkwHyKn9",
+                destfile=here("data_raw", "tmf_ec_jrc", "forest_t3.tif"), method = 'auto', mode="wb")
+}
+## Reproject from South America Albers Equal Area Conic (ESRI:102033) to UTM32N (EPSG:2972) 
+# Resampling from 30x30m to 1000x1000m using sum method 
+## Reframe on French Guyana and set no data values 
+sourcefile <- here("data_raw", "tmf_ec_jrc", "forest_t3.tif")
+destfile <- here("data_raw", "tmf_ec_jrc", "forest_n.tif")
+system(glue("gdalwarp -overwrite -tap -r sum -tr 1000 1000  \\
+         -srcnodata -99999 -ot UInt16 -of GTiff \\
+        {sourcefile} \\
+        {destfile}"))
+# Issue to reproject from ESRI:102033 to EPSG:32622 (xmin,xmax<0)
+# Set extent and NA's 
+# -s_srs ESRI:102033 -t_srs {proj.t} -co 'GEOTIFF_KEYS_FLAVOR=ESRI_PE'
+## Correction Mada if forest_n > 555 (more than 50% of the 1km cell is covered by land)
+## Indeed, 555*30*30 = 499500 m2 and 556*30*30 = 500400 m2
+sourcefile <- here("data_raw", "tmf_ec_jrc", "forest_n.tif")
+destfile <- here("data_raw", "tmf_ec_jrc", "forest_1km.tif")
+system(glue("gdal_calc.py --overwrite -A {sourcefile} --calc='(A>555)' --outfile={destfile}"))
+# r <- read_stars(destfile)
+# plot(r, reset=FALSE, axes=TRUE)
+# border <- st_read(here("data_raw","fao_gaul","FAO_GAUL_GUY.kml"))
+# border <- st_transform(border,crs=st_crs(r))
+# plot(st_geometry(border), add=TRUE, reset=FALSE)
 # Distance to coast
 # gdal.proximity
 # Distance to river 
