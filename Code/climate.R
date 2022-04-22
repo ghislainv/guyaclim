@@ -67,7 +67,8 @@ files.zip <- c("wc2.1_30s_tmax.zip", "wc2.1_30s_tmin.zip", "wc2.1_30s_tavg.zip",
 for (i in 1:length(files.zip)){
   dst <- paste(here("data_raw","worldclim_v2_1"), files.zip[i], sep="/")
   unzip(dst, exdir=here("data_raw", "worldclim_v2_1", "temp"), overwrite=TRUE)
-  files.tif <- grep("_crop_", list.files(here("data_raw", "worldclim_v2_1", "temp"), pattern="tif", full.names = TRUE),
+  files.tif <- grep("_crop_", list.files(here("data_raw", "worldclim_v2_1", "temp"),
+                                         pattern="tif", full.names = TRUE),
                     invert=TRUE, value=TRUE)
   for(j in 1:length(files.tif)){
     sourcefile <- files.tif[j]
@@ -78,9 +79,9 @@ for (i in 1:length(files.zip)){
     file.remove(sourcefile)
   }
   files.tif <- list.files(here("data_raw", "worldclim_v2_1", "temp"), pattern="tif", full.names = TRUE)
-  r <- read_stars(files.tif, proxy=TRUE, along="band")
-  write_stars(obj=r, type="Int16", options = c("COMPRESS=LZW","PREDICTOR=2"),
-              dsn=paste(here("data_raw","worldclim_v2_1"),
+  r <- read_stars(files.tif, along="band")
+  write_stars(obj=r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value=nodat,
+              dsn=paste(here("data_raw","worldclim_v2_1"),  
                         gsub(".zip",".tif", gsub("wc2.1_30s_","wc2.1_30s_crop_", files.zip[i])),sep="/"))
   file.remove(files.tif)
 }
@@ -156,27 +157,26 @@ system(glue("g.list --overwrite type=rast pat=wc2.1_30s_bio[0-1][0-9] map=. outp
 files <- read.table(here('data_raw','worldclim_v2_1','files'), header = FALSE, sep = "", dec = ".")
 for (i in 1:nrow(files)){
   system(glue("r.out.gdal -f --overwrite input={files[i,]} \\
-  			 output={paste0(here('data_raw', 'worldclim_v2_1','temp'),'/',files[i,],'.tif')} type=Int16 nodata=0 \\
+  			 output={paste0(here('data_raw', 'worldclim_v2_1','temp'),'/',files[i,],'.tif')} \\
+  			 type=Int16 nodata={nodat} \\
   			 createopt='compress=lzw,predictor=2'"))
 }
 
 ## Reproject from lat long to UTM32N (epsg: 2972), set resolution to 1km and reframe on French Guyana
-# Set no data values in sea according to elevation map
-elev <- read_stars(here("data_raw", "srtm_v1_4_90m", "elevation_1km.tif"))
 # bio1-19
 files.tif <- list.files(here("data_raw", "worldclim_v2_1", "temp"), pattern="tif", full.names = TRUE)
 for(i in 1:length(files.tif)){
   sourcefile <- files.tif[i]
   destfile <- gsub("wc2.1_30s_", "wc2.1_1km_", files.tif[i])
   system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} \\
-        -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff -srcnodata 0 -dstnodata {nodat} \\
+        -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff  \\
+        -srcnodata {nodat} -dstnodata {nodat} \\
         {sourcefile} \\
         {destfile}"))
   file.remove(sourcefile)
 }
 files.tif <- list.files(here("data_raw", "worldclim_v2_1", "temp"), pattern="tif", full.names=TRUE)
 (r <- read_stars(files.tif, along="band"))
-r[[1]][is.na(elev[[1]])] <- nodat
 write_stars(obj=r, type="Int16", options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value=nodat,
             dsn=paste(here("data_raw","worldclim_v2_1"),"wc2.1_1km_bio.tif",sep="/"))
 file.remove(files.tif)
@@ -195,17 +195,16 @@ files.tif <- list.files(here("data_raw", "worldclim_v2_1"), pattern="crop", full
 for(i in 1:length(files.tif)){
   sourcefile <- files.tif[i]
   destfile <- gsub("worldclim_v2_1/wc2.1_30s_crop_", "worldclim_v2_1/temp/wc2.1_1km_", files.tif[i])
-  system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} \\
-        -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff \\
+  system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} -srcnodata {nodat} -dstnodata {nodat} \\
+        -r bilinear -tr 1000 1000 -te {Extent} -of GTiff  \\
         {sourcefile} \\
         {destfile}"))
-  file.remove(sourcefile)
+  #file.remove(sourcefile)
 }
 files.tif <- list.files(here("data_raw", "worldclim_v2_1", "temp"), pattern="tif", full.names = TRUE)
 (r <- read_stars(files.tif[4:1], along="band"))
-r[[1]][is.na(elev[[1]])] <- nodat
-write_stars(obj=r, type="Int16", options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value=nodat,
-            dsn=paste(here("data_raw","worldclim_v2_1"),"wc2.1_1km_clim.tif", sep="/"))
+write_stars(obj=r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value=nodat,
+            dsn=paste(here("data_raw","worldclim_v2_1"), "wc2.1_1km_clim.tif", sep="/"))
 file.remove(files.tif)
 
 #==== PET, CWD and NDM ====
@@ -284,7 +283,7 @@ pet.cwd.ndm.f <- function(clim){
 clim <- read_stars(here("data_raw", "worldclim_v2_1","wc2.1_1km_clim.tif"), along="band")
 pet.cwd.ndm <- pet.cwd.ndm.f(clim)
 write_stars(obj=c(pet.cwd.ndm$PET12,pet.cwd.ndm$PET,pet.cwd.ndm$CWD,pet.cwd.ndm$NDM, along="band"),
-            type="Int16", overwrite=TRUE, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value=nodat,
+            overwrite=TRUE, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value=nodat,
             dsn=paste(here("data_raw","worldclim_v2_1","wc2.1_1km_pet_cwd_ndm.tif")))
 
 #===== Output stack ======
@@ -295,14 +294,17 @@ os <- c(clim,bioclim,pet.cwd.ndm, along="band")
 os <- split(os, "band")
 names(os) <- c(paste("tmin",1:12,sep=""),paste("tmax",1:12,sep=""),paste("tavg",1:12,sep=""),paste("prec",1:12,sep=""),
                paste("bio",1:19,sep=""),paste("pet",1:12,sep=""),"pet","cwd","ndm")
-write_stars(obj=merge(os), type="Int16", overwrite=TRUE, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value=nodat, 
+# T from °C to 10x°C and round prec, cwd and pet to get integers 
+os_int <- round(c(os[1:36,,]*10, os[37:82,,]))
+
+write_stars(obj=merge(os_int), type="Int16", overwrite=TRUE, options = c("COMPRESS=LZW","PREDICTOR=2"),
+            NA_value=nodat, 
             dsn=paste(here("output"),"current_wc.tif", sep="/"))
 ##= Plot
 os <- read_stars(paste(here("output"),"current_wc.tif", sep="/"), along="band")
 # check if all bands have same number of NAs
 # tmin, tmax, tavg, prec OK,
-# bioclim more NAs 
-# pet1-12, pet, cwd and ndm more NAs (1/0 in computation of Tm/I pet.thorne)
+# bioclim less NAs 
 apply(is.na(os)[[1]],3,sum)
 # chack overlap with border
 border <- st_read(here("data_raw","fao_gaul","FAO_GAUL_GUY.kml"))
@@ -415,14 +417,16 @@ os <- c(clim,bioclim,pet.cwd.ndm, along="band")
 os <- split(os, "band")
 names(os) <- c(paste("tmin",1:12,sep=""),paste("tmax", 1:12, sep=""), paste("tavg",1:12, sep=""),paste("prec",1:12,sep=""),
                paste("bio",1:19,sep=""), paste("pet", 1:12, sep=""),"pet","cwd","ndm")
-write_stars(obj=merge(os), overwrite=TRUE, options = c("COMPRESS=LZW","PREDICTOR=2"),
-            NA_value=nodat, dsn=paste(here("output"),"current_chelsa.tif", sep="/"))
+# T from °C to 10x°C and round prec, cwd and pet to get integers 
+os_int <- round(c(os[1:36,,]*10, os[37:48,,], os[49:59,,]*10, os[60:82,,]))
+write_stars(obj=merge(os_int), overwrite=TRUE, options = c("COMPRESS=LZW","PREDICTOR=2"),
+            type="Int16", NA_value=nodat, dsn=paste(here("output"),"current_chelsa.tif", sep="/"))
 # type="Int16" to reduce size => transfrom Temperatures in °C*10 or find a way to keep scale and offset from Chelsa 
 ##= Plot
 os <- read_stars(paste(here("output"),"current_chelsa.tif", sep="/"), along="band")
 # check if all bands have same number of NAs 
 apply(is.na(os)[[1]],3,sum)
-# chack overlap with border
+# check overlap with border
 border <- st_read(here("data_raw","fao_gaul","FAO_GAUL_GUY.kml"))
 border <- st_transform(border,crs=st_crs(os))
 plot(os[,,,1],axes=TRUE, reset = FALSE)
