@@ -24,7 +24,7 @@ library(dismo) # for function bioclim
 ## gdalwrap options
 # from output/extent.txt
 Extent <- readLines(here("output/extent_short.txt"))
-Res <- "1000"
+Res <- 1000
 nodat <- -9999
 proj.s <- "EPSG:4326"
 proj.t <- "EPSG:2972"
@@ -169,7 +169,7 @@ for(i in 1:length(files.tif)){
   sourcefile <- files.tif[i]
   destfile <- gsub("wc2.1_30s_", "wc2.1_1km_", files.tif[i])
   system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} \\
-        -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff  \\
+        -r bilinear -tr {Res} {Res} -te {Extent} -ot Int16 -of GTiff  \\
         -srcnodata {nodat} -dstnodata {nodat} \\
         {sourcefile} \\
         {destfile}"))
@@ -196,7 +196,7 @@ for(i in 1:length(files.tif)){
   sourcefile <- files.tif[i]
   destfile <- gsub("worldclim_v2_1/wc2.1_30s_crop_", "worldclim_v2_1/temp/wc2.1_1km_", files.tif[i])
   system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} -srcnodata {nodat} -dstnodata {nodat} \\
-        -r bilinear -tr 1000 1000 -te {Extent} -of GTiff  \\
+        -r bilinear -tr {Res} {Res} -te {Extent} -of GTiff  \\
         {sourcefile} \\
         {destfile}"))
   #file.remove(sourcefile)
@@ -379,7 +379,7 @@ for(var in c("tasmin","tasmax","tas","pr", "bio")){
     sourcefile <- files.tif[i]
     destfile <- gsub(".tif", "_1km.tif", files.tif[i])
     system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} \\
-        -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff -srcnodata 0 -dstnodata {nodat} \\
+        -r bilinear -tr {Res} {Res} -te {Extent} -ot Int16 -of GTiff -srcnodata 0 -dstnodata {nodat} \\
         {sourcefile} \\
         {destfile}"))
   file.remove(sourcefile)

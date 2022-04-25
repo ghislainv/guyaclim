@@ -1,4 +1,3 @@
-##=====================================================
 ##
 ## Environmental data for French Guyana
 ##
@@ -7,7 +6,7 @@
 ##
 ## Octobre 2021
 ##
-##=====================================================
+
 
 ## gdal library is needed to run this script
 ## http://www.gdal.org/
@@ -39,17 +38,20 @@ proj.s <- "EPSG:4326"
 proj.t <- "EPSG:2972"
 # "EPSG:32622" not legal projection
 
+dir.create(here("data_raw", "srtm_v1_4_90m")) ## folder for environmental data
+dir.create(here("data_raw", "srtm_v1_4_90m", "temp")) ## folder for temporary data
+
 #====== Elevation, slope aspect, roughness #======
 # SRTM at 90m resolution from https://dwtkns.com/srtm/ version 4.1
 ## Download and unzip CGIAR-CSI 90m DEM data
 tiles <- c("26_11","26_12")
 for (i in 1:length(tiles)) {
-  dst <- paste0(here("data_raw", "srtm_v1_4_90m","srtm_"),tiles[i],".zip")
+  dst <- paste0(here("data_raw", "srtm_v1_4_90m", "temp", "srtm_"),tiles[i],".zip")
   if (down) {
     url.tile <- paste0("https://srtm.csi.cgiar.org/wp-content/uploads/files/srtm_5x5/TIFF/srtm_",tiles[i],".zip")
     download.file(url=url.tile,destfile=dst,method="wget",quiet=TRUE)
   }
-  unzip(dst,exdir=here("data_raw", "srtm_v1_4_90m"),overwrite=TRUE)
+  unzip(dst, exdir=here("data_raw", "srtm_v1_4_90m", "temp"), overwrite=TRUE)
 }
 ## Mosaic with gdalbuildvrt
 destfile <- here("data_raw", "srtm_v1_4_90m", "temp", "elevation.vrt")
@@ -64,7 +66,7 @@ system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} -srcnodata -327
         -r bilinear -tr 90 90 -te {Extent} -ot Int16 -of GTiff \\
         {sourcefile} \\
         {destfile}"))
-#elev <- read_stars(here("data_raw", "srtm_v1_4_90m", "temp", "elevation.tif"))
+# elev <- read_stars(here("data_raw", "srtm_v1_4_90m", "temp", "elevation.tif"))
 # border <- st_read(here("data_raw","fao_gaul","FAO_GAUL_GUY.kml"))
 # border <- st_transform(border,crs=st_crs(elev))
 # plot(elev,axes=TRUE,reset = FALSE)
@@ -118,7 +120,7 @@ system(cmd)
 # Solar radiation was computed for the Julian day 79 (20th of March for regular years=equinox).
 ## Initialize GRASS
 setwd(here("data_raw"))
-Sys.setenv(LD_LIBRARY_PATH=paste("/usr/lib/grass78/lib", Sys.getenv("LD_LIBRARY_PATH"),sep=":"))
+Sys.setenv(LD_LIBRARY_PATH=paste("/usr/lib/grass78/lib", Sys.getenv("LD_LIBRARY_PATH"), sep=":"))
 # use a georeferenced raster
 elevation <- here("data_raw", "srtm_v1_4_90m", "temp", "elevation.tif")
 system(glue('grass -c {elevation} grassdata/environ'))
@@ -149,11 +151,7 @@ cmd <- glue('gdalwarp -srcnodata -32767 -dstnodata -32767 -s_srs {proj.t} -t_srs
         -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}')
 system(cmd)
 
-##==========================================================
-##
-## Forest: percentage of forest in 1km2
-##
-##==========================================================
+## =========== Forest: percentage of forest in 1km2 ========
 
 ## References:
 ## (1) Forestatrisk project: https://forestatrisk.cirad.fr/rawdata.html
@@ -166,18 +164,25 @@ if (down) {
   download.file("https://drive.google.com/uc?export=download&id=1FBL_Jy8QRi-wtG3rcsKZoJldzkwHyKn9",
                 destfile=here("data_raw", "tmf_ec_jrc", "forest_t3.tif"), method = 'auto', mode="wb")
 }
+forest <- read_stars(here("data_raw", "tmf_ec_jrc", "forest_t3.tif"), along="band")
 ## Reproject from South America Albers Equal Area Conic (ESRI:102033) to UTM32N (EPSG:2972) 
 # Resampling from 30x30m to 1000x1000m using sum method 
 ## Reframe on French Guyana and set no data values 
 sourcefile <- here("data_raw", "tmf_ec_jrc", "forest_t3.tif")
 destfile <- here("data_raw", "tmf_ec_jrc", "forest_n.tif")
-system(glue("gdalwarp -overwrite -tap -r sum -tr 1000 1000  \\
-         -srcnodata -99999 -ot UInt16 -of GTiff \\
+system(glue("gdalwarp -overwrite  \\
+         -s_srs '+proj=aea +lat_1=-5 +lat_2=-42 +lat_0=-32 +lon_0=-60 +x_0=0 +y_0=0 +ellps=aust_SA +units=m +no_defs' \\
+         -t_srs {proj.t} -ot Int16 -of GTiff \\
         {sourcefile} \\
         {destfile}"))
 # Issue to reproject from ESRI:102033 to EPSG:32622 (xmin,xmax<0)
 # Set extent and NA's 
 # -s_srs ESRI:102033 -t_srs {proj.t} -co 'GEOTIFF_KEYS_FLAVOR=ESRI_PE'
+forest_n <- read_stars(here("data_raw", "tmf_ec_jrc", "forest_n.tif"), along="band")
+border <- st_read(here("data_raw","fao_gaul","FAO_GAUL_GUY.kml"))
+border <- st_transform(border, crs=st_crs(forest_n))
+plot(forest_n, axes=TRUE, reset=FALSE)
+plot(border, add=TRUE)
 ## Correction Mada if forest_n > 555 (more than 50% of the 1km cell is covered by land)
 ## Indeed, 555*30*30 = 499500 m2 and 556*30*30 = 500400 m2
 sourcefile <- here("data_raw", "tmf_ec_jrc", "forest_n.tif")

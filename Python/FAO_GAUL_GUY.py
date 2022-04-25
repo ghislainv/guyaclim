@@ -12,6 +12,7 @@
 
 # Third party imports
 import ee
+#ee.Authenticate()
 ee.Initialize()
 
 countries = ee.FeatureCollection("FAO/GAUL/2015/level0")
