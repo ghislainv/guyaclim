@@ -386,7 +386,12 @@ for(var in c("tasmin","tasmax","tas","pr", "bio")){
   }
   files.tif <- list.files(here("data_raw", "chelsa_v2_1", "temp"), pattern=var, full.names = TRUE)
   r <- read_stars(gtools::mixedsort(files.tif), along="band") 
-  # Define no data values out of French Guyana border according to elevation map 
+  # Define no data values out of French Guyana border 
+  #borders <- sf::st_read(here("data_raw", "fao_gaul", paste0("gadm36_", ISO_country_code, ".gpkg")),
+  #                       layer=paste0("gadm36_", ISO_country_code, "_0"), quiet=!verbose)
+  #st_transform(borders, crs=EPSG)
+  # st_crop(r, borders)
+  # Define no data values in sea according to elevation map 
   r[[1]][is.na(elev[[1]])] <- nodat
   write_stars(obj=r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value=nodat,
               dsn=here("data_raw","chelsa_v2_1", paste0(var,"_1km.tif")))
