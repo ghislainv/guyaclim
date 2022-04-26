@@ -1,15 +1,65 @@
+## ==============================================================================
+## author          :Ghislain Vieilledent, Jeanne Clément
+## email           :ghislain.vieilledent@cirad.fr, jeanne.clement16@laposte.net
+## web             :https://ecology.ghislainv.fr
+## license         :GPLv3
+## ==============================================================================
+
+#' @name climate
+#' @aliases climate 
+#' @title Download and resample the climatic data for a given country or area. 
+#' @description The \code{climate} Download and resample the climatic data for a given country or area.
+#' @param ISO_country_code Specify the ISO 3166 code of the country whose climate data is required.
+#' @param EPSG wanted projection for output climate data
+#' @param area_borders shapefile giving the borders of the area whose climate data is required.
+#' @param extent if specified ISO_country_code and area_borders are ignored, give extent corresponding to \code{EPSG} 
+#' @param source Worldclim / Chelsa
+#' @param future A Boolean which determines whether or not future climate data should be downloaded and resampled
+#' @param GCM global climate model (GCM) data from CMIP5 (IPPC Fifth Assessment) 
+#' @param RCP Future conditions are for two CO2 emission scenarios (RCP 4.5 and 8.5) 
+#' @param period time periods 2050s and 2080s 
+#' @param output_file if null return stars object 
+#' @param verbose A Boolean which determines whether or not the download and resampling progress is printed on the screen. Default is \code{TRUE}.
+#' @return A file in format .tif and type Int16 including : 
+#'  \item{tmin.1-12}{.}
+#'  \item{tmax.1-12}{.}
+#'  \item{tavg.1-12}{.}
+#'  \item{prec.1-12}{.}
+#'  \item{bio.1-19}{}
+#'  \item{pet.1-12}{.} 
+#'  \item{pet}{}
+#'  \item{ndm}{}
+#'  \item{cwd}{}
+#'
+#' @details 
+#' 
+#' 
+#' @examples 
+#' #==============================================
+#' # climate()
+#' # Example on French Guiana
+#' #==============================================
+#' 
+#' #=================
+#' #== Load libraries
+#' library(guyaclim)
+#' 
+#' @references
+#' worldclim 
+#'
+#' Chelsa
+#' 
+#' @author 
+#' Ghislain Vieilledent <ghislain.vieilledent@cirad.fr>
+#'  
+#' Jeanne Clément <jeanne.clement16@laposte.net>
+#' 
+#' @seealso \code{\link{get_extent}}, \code{\link{environ}}
+#' @keywords climatic data 
+#' @export
+
 climate <- function() {
-  #' Climatic data
-  #'
-  #' Download and resample the climatic data.
-  #'
-  #' @examples
-  #' climate()
-  #' @author Ghislain Vieilledent <ghislain.vieilledent@cirad.fr>
-  #' @export
-  
   library(here)
-  
   # Standard (19) WorldClim Bioclimatic variables for WorldClim version 2.1.
   # They are the average for the years 1970-2000 at 30 seconds (~1 km2).
   # Download a "zip" file containing 19 GeoTiff (.tif) files, one for each variable :

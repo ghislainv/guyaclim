@@ -46,7 +46,7 @@ library(glue)
 #===== Using GADM version 3.6 ========
 # https://gadm.org/download_country36.html
 #ISO_country_code="GUF" for French Guyana and EPSG=2972
-get_extent <- function(ISO_country_code, EPSG, area_borders=NULL, verbose){
+get_extent <- function(ISO_country_code, EPSG, area_borders=NULL, verbose=TRUE, write=TRUE){
   
   if(is.null(area_borders)){
     URL <- paste0("https://geodata.ucdavis.edu/gadm/gadm3.6/gpkg/gadm36_", ISO_country_code, "_gpkg.zip")
@@ -79,10 +79,12 @@ get_extent <- function(ISO_country_code, EPSG, area_borders=NULL, verbose){
   # Print extent with description (xmin, ymin, xmax, ymax)
   msg <- paste0("Extent of ", ISO_country_code," in EPSG:", EPSG)
   extent <- glue("xmin: {xmin}, ymin: {ymin}, xmax: {xmax}, ymax: {ymax}")
-  writeLines(c(msg, extent), here("output", "extent.txt"))
+  if(write){writeLines(c(msg, extent), here("output", "extent.txt"))}
   
   # Print extent (xmin, ymin, xmax, ymax)
   extent <- glue("{xmin} {ymin} {xmax} {ymax}")
-  writeLines(extent, here("output", "extent_short.txt"))
+  if(write){writeLines(extent, here("output", "extent_short.txt"))}
+  
+return(c(xmin, ymin, xmax, ymax))
 }
 # End

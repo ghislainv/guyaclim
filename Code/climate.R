@@ -60,7 +60,9 @@ download.file('http://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_30s_vapr
 
 ## Unzip worldclim 30s monthly Tmin, Tmax, Tavg and Prec.
 ## Reframe on French Guyana with a little margin.
-guy <- sf::st_read(here("data_raw", "fao_gaul", "FAO_GAUL_GUY.kml"))
+ISO_country_code <- "GUF"
+guy <- sf::st_read(here("data_raw", "fao_gaul", paste0("gadm36_", ISO_country_code, ".gpkg")),
+                       layer=paste0("gadm36_", ISO_country_code, "_0"))
 bb_ll <- st_bbox(guy, crs=st_crs(4326))
 bb_ll_large <- c(floor(bb_ll[c("xmin", "ymin")]), ceiling(bb_ll[c("xmax", "ymax")]))
 files.zip <- c("wc2.1_30s_tmax.zip", "wc2.1_30s_tmin.zip", "wc2.1_30s_tavg.zip", "wc2.1_30s_prec.zip")
@@ -307,10 +309,12 @@ os <- read_stars(paste(here("output"),"current_wc.tif", sep="/"), along="band")
 # bioclim less NAs 
 apply(is.na(os)[[1]],3,sum)
 # chack overlap with border
-border <- st_read(here("data_raw","fao_gaul","FAO_GAUL_GUY.kml"))
+ISO_country_code <- "GUF"
+border <- sf::st_read(here("data_raw", "fao_gaul", paste0("gadm36_", ISO_country_code, ".gpkg")),
+                      layer=paste0("gadm36_", ISO_country_code, "_0"))
 border <- st_transform(border,crs=st_crs(os))
 plot(os[,,,1], axes=TRUE, reset = FALSE)
-plot(border, add=TRUE)
+plot(border$geom, add=TRUE, reset=FALSE)
 ## PET
 # Pet 1:12 ok but pet seems wrong
 png(here("output","pet_wc.png"),width=600,height=600,res=72,pointsize=16)
@@ -432,10 +436,12 @@ os <- read_stars(paste(here("output"),"current_chelsa.tif", sep="/"), along="ban
 # check if all bands have same number of NAs 
 apply(is.na(os)[[1]],3,sum)
 # check overlap with border
-border <- st_read(here("data_raw","fao_gaul","FAO_GAUL_GUY.kml"))
+ISO_country_code <- "GUF"
+border <- sf::st_read(here("data_raw", "fao_gaul", paste0("gadm36_", ISO_country_code, ".gpkg")),
+                       layer=paste0("gadm36_", ISO_country_code, "_0"))
 border <- st_transform(border,crs=st_crs(os))
 plot(os[,,,1],axes=TRUE, reset = FALSE)
-plot(border, add=TRUE)
+plot(border$geom, add=TRUE, reset=FALSE)
 ## PET
 # Pet 1:12 monthly and annual pet 
 png(here("output","pet_chelsa.png"), width=600,
