@@ -9,7 +9,9 @@ data_raw/tmf_ec_jrc/*.tif
 data_raw/srtm_v1_4_90m/
 data_raw/srtm_v1_4_90m/*.zip
 data_raw/srtm_v1_4_90m/*.tif
+data_raw/srtm_v1_4_90m/*_1km*
 data_raw/srtm_v1_4_90m/temp
+data_raw/soilgrids250_v2_0/*.tif
 data_raw/grassdata/
 grassdata
 
