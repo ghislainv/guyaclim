@@ -54,6 +54,7 @@ for (i in 1:length(tiles)) {
 ## Merge srtm with c.stars
 sourcefile <- list.files(here("data_raw", "srtm_v1_4_90m"), pattern = "*.tif", full.names = TRUE)
 merge.tif <- c(read_stars(sourcefile[1]), read_stars(sourcefile[2]), along = 1)
+
 write_stars(merge.tif, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
             dsn = here("data_raw","srtm_v1_4_90m","temp", "elevation_noExtent.tif"), layer = 1)
 
@@ -61,14 +62,19 @@ write_stars(merge.tif, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nod
 sourcefile <- here("data_raw", "srtm_v1_4_90m", "temp", "elevation_noExtent.tif")
 destfile <- here("data_raw", "srtm_v1_4_90m", "temp", "elevation.tif")
 system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t}  \\
-        -r bilinear -tr 90 90 -ot Int16 -of GTiff  \\
+        -r bilinear -tr 90 90 -ot Int16 -of GTiff \\
         {sourcefile} \\
         {destfile}"))
-elev <- read_stars(here("data_raw", "srtm_v1_4_90m", "temp", "elevation.tif"))
+elev <- destfile
+borders = st_bbox(soilgrids)
+elev = st_crop(read_stars(elev), borders)
+write_stars(elev, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = destfile, layer = 1)
 border <- st_read(paste(here("data_raw", "fao_gaul"), "gadm36_NCL.gpkg", sep = "/"), layer = "gadm36_NCL_0")
-border <- st_transform(border,crs=st_crs(elev))
+border <- st_transform(border,crs = st_crs(elev))
 plot(elev,axes = TRUE, reset = FALSE)
 plot(st_geometry(border), add = TRUE, reset = FALSE)
+
 
 ## Compute slope, aspect and roughness using gdaldem 
 # compute slope
@@ -139,11 +145,17 @@ system(cmd)
 system(glue("r.out.gdal -f --verbose --overwrite input=global_rad \\
   			 output={here('data_raw', 'srtm_v1_4_90m', 'temp', 'srad.tif')} type=Int16  \\
   			 createopt='COMPRESS=LZW' nodata={nodat}"))
+
 # Resolution from 90m x 90m to 1000m x 1000m using gdalwarp
 # srad
 in_f <- here("data_raw", "srtm_v1_4_90m", "temp", "srad.tif")
 out_f <- here("data_raw", "srtm_v1_4_90m", "srad_1km.tif")
-cmd <- glue('gdalwarp -s_srs {proj.t} -t_srs {proj.t} -te {Extent} \\
+# srad = read_stars(in_f)
+# srad = st_crop(srad, borders)
+# write_stars(srad, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+#            dsn = in_f, layer = 1)
+
+cmd <- glue('gdalwarp -s_srs {proj.t} -t_srs {proj.t} \\
         -r bilinear -tr 1000 1000 -ot Int16 -of GTiff \\
         -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}')
 system(cmd)

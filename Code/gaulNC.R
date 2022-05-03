@@ -48,7 +48,7 @@ get_extent <- function(ISO_country_code, EPSG, area_borders=NULL, verbose=TRUE, 
   extent_ll <- glue("latmin: {latmin}, longmin: {longmin}, latmax: {latmax}, longmax: {longmax}")
   if(write){
     writeLines(c(msg, extent), here("output", "extent.txt"))
-    writeLines(c(msg,extent_ll), here("output", "extent_ll.txt"))
+    writeLines(c(msg,extent_ll), here("output", "extent_latlong.txt"))
     }
   
   # Print extent (xmin, ymin, xmax, ymax)
