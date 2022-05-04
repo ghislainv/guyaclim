@@ -51,8 +51,6 @@ reExtent = paste0(c(xmin = round(offset[1]),
                     ymax = round(offset[2] - d[["y"]]$to * d[["y"]]$delta)), collapse = " ")
 writeLines(reExtent, here("output", "reExtent_short.txt"))
 
-###### not working
-
 ## Merge soil with elevation, aspect, slope, solar radiation(srad) and roughness
 aspect <- read_stars(here("data_raw", "srtm_v1_4_90m", "aspect_1km.tif"))
 elevation <- read_stars(here("data_raw", "srtm_v1_4_90m", "elevation_1km.tif"))

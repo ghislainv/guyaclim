@@ -274,6 +274,7 @@ srad <- st_normalize(srad[, 1 + (st_dimensions(srad)[['x']]$to - x_to) : x_to - 
 soilgrids <- st_normalize(soilgrids[, 1 + (st_dimensions(soilgrids)[['x']]$to - x_to) : x_to - 1, 1 + (st_dimensions(soilgrids)[['y']]$to - y_to) : y_to - 1])
 
 r <- c(aspect, elevation, roughness, slope, srad, soilgrids, along = "band", try_hard = TRUE)
+writeLines(paste0(st_bbox(r), collapse = " "), here("output", "reExtent_short.txt"))
 write_stars(r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
             dsn = here("data_raw", "srtm_v1_4_90m", "environ.tif"))
 
