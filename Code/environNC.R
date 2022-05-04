@@ -43,50 +43,13 @@ EPSG = 3165
 nodat = -9999
 proj.s <- "EPSG:4326"
 proj.t <- "EPSG:3165"
-
+Extent <- readLines(here("output/extent_short.txt"))
 
 ##==============================
 ##
-## Soilgrids
+## Borders of New Caledonia
 ##
 ##==============================
-for (i in seq(163, 167, 2))
-{
-  for (j in seq(-23,-19, 2))
-  {
-    url = paste("https://maps.isric.org/mapserv?map=/map/wrb.map&SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=MostProbable&FORMAT=image/tiff&SUBSET=long(",i, ".0000,", i+2, ".0000)&SUBSET=lat(", j, ".0000,", j+2, ".0000)&SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/4326&OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/4326", sep = "")
-    dest = here("data_raw", "soilgrids250_v2_0", paste("soilgrids_", j, "_", i, ".tif", sep = ""))
-    download.file(url = url, destfile = dest, verbose = TRUE)
-  }
-}
-sourcefile <- list.files(here("data_raw", "soilgrids250_v2_0"), pattern = ".tif", full.names = TRUE)
-merge19 <- c(read_stars(sourcefile[1]), read_stars(sourcefile[2]), read_stars(sourcefile[3]), along = 1)
-merge21 <- c(read_stars(sourcefile[4]), read_stars(sourcefile[5]), read_stars(sourcefile[6]), along = 1)
-merge23 <- c(read_stars(sourcefile[7]), read_stars(sourcefile[8]), read_stars(sourcefile[9]), along = 1)
-merge.tif <- c(merge19, merge21, merge23, along = 2)
-# plot(merge.tif, breaks = "equal", main = "NCL")
-write_stars(merge.tif, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw","soilgrids250_v2_0", "soilgrids_NoExtent.tif"))
-
-sourcefile <- here("data_raw", "soilgrids250_v2_0", "soilgrids_NoExtent.tif")
-destfile <- here("data_raw", "soilgrids250_v2_0", "soilgrids_1km.tif")
-system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} \\
-        -r bilinear -tr 1000 1000 -ot Int16 -srcnodata {nodat} -of GTiff \\
-        {sourcefile} \\
-        {destfile}"))
-read_stars(destfile)
-plot(read_stars(destfile), breaks = "equal") # ferralsol == ultramafic
-
-#Redimension others tif files
-soilgrids = read_stars(here("data_raw", "soilgrids250_v2_0", "soilgrids_1km.tif"))
-d = st_dimensions(soilgrids)
-offset = c(d[["x"]]$offset, d[["y"]]$offset)
-reExtent = paste0(c(xmin = round(offset[1]),
-                    ymin = round(offset[2]),
-                    xmax = round(offset[1] + d[["x"]]$to * d[["x"]]$delta),
-                    ymax = round(offset[2] - d[["y"]]$to * d[["y"]]$delta)), collapse = " ")
-writeLines(reExtent, here("output", "reExtent_short.txt"))
-
 URL <- paste0("https://geodata.ucdavis.edu/gadm/gadm3.6/gpkg/gadm36_", ISO_country_code, "_gpkg.zip")
 # Download file
 # The coordinate reference system is longitude/latitude and the WGS84 datum.
@@ -99,13 +62,81 @@ unzip(here("data_raw", "fao_gaul", paste0("gpkg_gadm36_", ISO_country_code, ".zi
 border <- sf::st_read(here("data_raw", "fao_gaul", paste0("gadm36_", ISO_country_code, ".gpkg")),
                       layer=paste0("gadm36_", ISO_country_code, "_0"), quiet=FALSE)
 border <- st_transform(border[1], crs = EPSG)
-border <- st_crop(border, st_bbox(soilgrids))
+
+##==============================
+##
+##
+## Tropical Moist Forest
+##
+## https://forobs.jrc.ec.europa.eu/TMF/download/TMF_DataUsersGuide.pdf
+##==============================
+
+# file available only by 10° x 10° for moist forest
+download.file("https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2010&lat=S20&lon=E160",
+              destfile = here("data_raw", "tmf_ec_jrc", "TMF_20_160noExtent.tif"), method = 'auto', mode = "wb")
+sourcefile <- here("data_raw", "tmf_ec_jrc", "TMF_20_160noExtent.tif")
+destfile <- here("data_raw", "tmf_ec_jrc", "TMF_20_160_1km.tif")
+system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} \\
+        -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff -srcnodata 0 -dstnodata {nodat} \\
+        {sourcefile} {destfile} \\
+        "))
+# set water values to NA
+forest <- st_normalize(st_crop(read_stars(destfile), border))
+write_stars(obj = forest, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = destfile)
+
+##==============================
+##
+## Soilgrids
+##
+##==============================
+
+# file available only by 2° x 2° for soilgrids250
+for (i in seq(163, 167, 2))
+{
+  for (j in seq(-23,-19, 2))
+  {
+    url = paste("https://maps.isric.org/mapserv?map=/map/wrb.map&SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=MostProbable&FORMAT=image/tiff&SUBSET=long(",i, ".0000,", i+2, ".0000)&SUBSET=lat(", j, ".0000,", j+2, ".0000)&SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/4326&OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/4326", sep = "")
+    dest = here("data_raw", "soilgrids250_v2_0", paste("soilgrids_", j, "_", i, ".tif", sep = ""))
+    download.file(url = url, destfile = dest, verbose = TRUE)
+  }
+}
+# concatenate files in one .tif
+sourcefile <- list.files(here("data_raw", "soilgrids250_v2_0"), pattern = ".tif", full.names = TRUE)
+merge19 <- c(read_stars(sourcefile[1]), read_stars(sourcefile[2]), read_stars(sourcefile[3]), along = 1)
+merge21 <- c(read_stars(sourcefile[4]), read_stars(sourcefile[5]), read_stars(sourcefile[6]), along = 1)
+merge23 <- c(read_stars(sourcefile[7]), read_stars(sourcefile[8]), read_stars(sourcefile[9]), along = 1)
+merge.tif <- c(merge19, merge21, merge23, along = 2)
+# plot(merge.tif, breaks = "equal", main = "NCL")
+write_stars(merge.tif, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw","soilgrids250_v2_0", "soilgrids_NoExtent.tif"))
+
+# resize, project and define accurate to 1km x 1km
+sourcefile <- here("data_raw", "soilgrids250_v2_0", "soilgrids_NoExtent.tif")
+destfile <- here("data_raw", "soilgrids250_v2_0", "soilgrids_1km.tif")
+system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} \\
+        -r bilinear -tr 1000 1000 -ot Int16 -srcnodata {nodat} -of GTiff \\
+        {sourcefile} \\
+        {destfile}"))
+# read_stars(destfile)
+# plot(read_stars(destfile), breaks = "equal")
+
+#Redimension others tif files
+# soilgrids = read_stars(here("data_raw", "soilgrids250_v2_0", "soilgrids_1km.tif"))
+# d = st_dimensions(soilgrids)
+# offset = c(d[["x"]]$offset, d[["y"]]$offset)
+# reExtent = paste0(c(xmin = round(offset[1]),
+#                     ymin = round(offset[2]),
+#                     xmax = round(offset[1] + d[["x"]]$to * d[["x"]]$delta),
+#                     ymax = round(offset[2] - d[["y"]]$to * d[["y"]]$delta)), collapse = " ")
+# writeLines(reExtent, here("output", "reExtent_short.txt"))
+
+soilgrids <- read_stars(here("data_raw", "soilgrids250_v2_0", "soilgrids_1km.tif"))
 soilgrids <- st_crop(soilgrids, border)
 write_stars(soilgrids, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
             dsn = here("data_raw", "soilgrids250_v2_0", "soilgrids_1km.tif"), layer = 1)
-soilgrids <- read_stars(here("data_raw", "soilgrids250_v2_0", "soilgrids_1km.tif"))
-
-
+# define border smaller
+border = st_crop(border, st_bbox(soilgrids))
 
 #====== Elevation, slope aspect, roughness #======
 # SRTM at 90m resolution from https://dwtkns.com/srtm/ version 4.1
@@ -134,15 +165,15 @@ system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t}  \\
         -r bilinear -tr 90 90 -ot Int16 -of GTiff \\
         {sourcefile} \\
         {destfile}"))
-elev <- destfile
-borders = st_bbox(soilgrids)
-elev = st_crop(read_stars(elev), borders)
-write_stars(elev, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = destfile, layer = 1)
-border <- st_read(paste(here("data_raw", "fao_gaul"), "gadm36_NCL.gpkg", sep = "/"), layer = "gadm36_NCL_0")
-border <- st_transform(border,crs = st_crs(elev))
-plot(elev,axes = TRUE, reset = FALSE)
-plot(st_geometry(border), add = TRUE, reset = FALSE)
+
+# write_stars(elev, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+#            dsn = destfile, layer = 1)
+# borders <- st_bbox(soilgrids)
+# elev <- st_crop(read_stars(destfile), border)
+# border <- st_read(paste(here("data_raw", "fao_gaul"), "gadm36_NCL.gpkg", sep = "/"), layer = "gadm36_NCL_0")
+# border <- st_transform(border,crs = st_crs(elev))
+# plot(elev,axes = TRUE, reset = FALSE)
+# plot(st_geometry(border), add = TRUE, reset = FALSE)
 
 
 ## Compute slope, aspect and roughness using gdaldem 
@@ -235,6 +266,7 @@ system(cmd)
 ##
 ##=====================================
 
+forest <- read_stars(here("data_raw", "tmf_ec_jrc", "TMF_20_160_1km.tif"))
 aspect <- read_stars(here("data_raw", "srtm_v1_4_90m", "aspect_1km.tif"))
 elevation <- read_stars(here("data_raw", "srtm_v1_4_90m", "elevation_1km.tif"))
 roughness <- read_stars(here("data_raw", "srtm_v1_4_90m", "roughness_1km.tif"))
@@ -242,38 +274,45 @@ slope <- read_stars(here("data_raw", "srtm_v1_4_90m", "slope_1km.tif"))
 srad <- read_stars(here("data_raw", "srtm_v1_4_90m", "srad_1km.tif"))
 soilgrids <- read_stars(here("data_raw", "soilgrids250_v2_0", "soilgrids_1km.tif"))
 
-borders <- st_bbox(aspect)
-aspect <- st_normalize(st_crop(aspect,borders))
-elevation <- st_normalize(st_crop(elevation, borders))
-roughness <- st_normalize(st_crop(roughness, borders))
-slope <- st_normalize(st_crop(slope, borders))
-srad <- st_normalize(st_crop(srad, borders))
-soilgrids <- st_normalize(st_crop(soilgrids, borders))
+border <- soilgrids # st_bbox(forest)
+aspect <- st_normalize(st_crop(aspect,border))
+elevation <- st_normalize(st_crop(elevation, border))
+roughness <- st_normalize(st_crop(roughness, border))
+slope <- st_normalize(st_crop(slope, border))
+srad <- st_normalize(st_crop(srad, border))
+soilgrids <- st_normalize(st_crop(soilgrids, border))
+forest <- st_normalize(st_crop(forest, border))
 
-st_dimensions(aspect)[["x"]]$offset = round(borders$xmin)
-st_dimensions(aspect)[["y"]]$offset = round(borders$ymax)
-st_dimensions(elevation)[["x"]]$offset = round(borders$xmin)
-st_dimensions(elevation)[["y"]]$offset = round(borders$ymax)
-st_dimensions(roughness)[["x"]]$offset = round(borders$xmin)
-st_dimensions(roughness)[["y"]]$offset = round(borders$ymax)
-st_dimensions(slope)[["x"]]$offset = round(borders$xmin)
-st_dimensions(slope)[["y"]]$offset = round(borders$ymax)
-st_dimensions(srad)[["x"]]$offset = round(borders$xmin)
-st_dimensions(srad)[["y"]]$offset = round(borders$ymax)
-st_dimensions(soilgrids)[["x"]]$offset = round(borders$xmin)
-st_dimensions(soilgrids)[["y"]]$offset = round(borders$ymax)
+x_to <- min(st_dimensions(aspect)[['x']]$to, st_dimensions(soilgrids)[['x']]$to, st_dimensions(srad)[['x']]$to, st_dimensions(forest)[['x']]$to)
+y_to <- min(st_dimensions(aspect)[['y']]$to, st_dimensions(soilgrids)[['y']]$to, st_dimensions(srad)[['y']]$to, st_dimensions(forest)[['y']]$to)
 
-x_to <- min(st_dimensions(aspect)[['x']]$to, st_dimensions(soilgrids)[['x']]$to, st_dimensions(srad)[['x']]$to)
-y_to <- min(st_dimensions(aspect)[['y']]$to, st_dimensions(soilgrids)[['y']]$to, st_dimensions(srad)[['y']]$to)
+aspect <-    st_normalize(aspect   [, 1 : x_to, (1 + st_dimensions(aspect)[['y']]$to - y_to) : st_dimensions(aspect)[['y']]$to])
+elevation <- st_normalize(elevation[, 1 : x_to, (1 + st_dimensions(elevation)[['y']]$to - y_to) : st_dimensions(elevation)[['y']]$to])
+roughness <- st_normalize(roughness[, 1 : x_to, (1 + st_dimensions(roughness)[['y']]$to - y_to) : st_dimensions(roughness)[['y']]$to])
+slope <-     st_normalize(slope    [, 1 : x_to, (1 + st_dimensions(slope)[['y']]$to - y_to) : st_dimensions(slope)[['y']]$to])
+srad <-      st_normalize(srad     [, 1 : x_to, (1 + st_dimensions(srad)[['y']]$to - y_to) : st_dimensions(srad)[['y']]$to])
+soilgrids <- st_normalize(soilgrids[, 1 : x_to, (1 + st_dimensions(soilgrids)[['y']]$to - y_to) : st_dimensions(soilgrids)[['y']]$to])
+forest <-    st_normalize(forest   [, 1 : x_to, (1 + st_dimensions(forest)[['y']]$to - y_to) : st_dimensions(forest)[['y']]$to])
 
-aspect <- st_normalize(aspect[, 1 + (st_dimensions(aspect)[['x']]$to - x_to) : x_to - 1, 1 + (st_dimensions(aspect)[['y']]$to - y_to) : y_to - 1])
-elevation <- st_normalize(elevation[, 1 + (st_dimensions(elevation)[['x']]$to - x_to) : x_to - 1, 1 + (st_dimensions(elevation)[['y']]$to - y_to) : y_to - 1])
-roughness <- st_normalize(roughness[, 1 + (st_dimensions(roughness)[['x']]$to - x_to) : x_to - 1, 1 + (st_dimensions(roughness)[['y']]$to - y_to) : y_to - 1])
-slope <- st_normalize(slope[, 1 + (st_dimensions(slope)[['x']]$to - x_to) : x_to - 1, 1 + (st_dimensions(slope)[['y']]$to - y_to) : y_to - 1])
-srad <- st_normalize(srad[, 1 + (st_dimensions(srad)[['x']]$to - x_to) : x_to - 1, 1 + (st_dimensions(srad)[['y']]$to - y_to) : y_to - 1])
-soilgrids <- st_normalize(soilgrids[, 1 + (st_dimensions(soilgrids)[['x']]$to - x_to) : x_to - 1, 1 + (st_dimensions(soilgrids)[['y']]$to - y_to) : y_to - 1])
+st_dimensions(aspect)[["x"]]$offset = round(st_bbox(border)$xmin)
+st_dimensions(aspect)[["y"]]$offset = round(st_bbox(border)$ymax)
+st_dimensions(elevation)[["x"]]$offset = round(st_bbox(border)$xmin)
+st_dimensions(elevation)[["y"]]$offset = round(st_bbox(border)$ymax)
+st_dimensions(roughness)[["x"]]$offset = round(st_bbox(border)$xmin)
+st_dimensions(roughness)[["y"]]$offset = round(st_bbox(border)$ymax)
+st_dimensions(slope)[["x"]]$offset = round(st_bbox(border)$xmin)
+st_dimensions(slope)[["y"]]$offset = round(st_bbox(border)$ymax)
+st_dimensions(srad)[["x"]]$offset = round(st_bbox(border)$xmin)
+st_dimensions(srad)[["y"]]$offset = round(st_bbox(border)$ymax)
+st_dimensions(soilgrids)[["x"]]$offset = round(st_bbox(border)$xmin)
+st_dimensions(soilgrids)[["y"]]$offset = round(st_bbox(border)$ymax)
+st_dimensions(forest)[["x"]]$offset = round(st_bbox(border)$xmin)
+st_dimensions(forest)[["y"]]$offset = round(st_bbox(border)$ymax)
 
-r <- c(aspect, elevation, roughness, slope, srad, soilgrids, along = "band", try_hard = TRUE)
+r <- c(aspect, elevation, roughness, slope, srad, soilgrids, forest, along = "band", try_hard = TRUE)
+r <- split(r)
+names(r) <- c("aspect", "elevation", "roughness", "slope", "srad", "soilgrids", "forest")
+r <- merge(r)
 writeLines(paste0(st_bbox(r), collapse = " "), here("output", "reExtent_short.txt"))
 write_stars(r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
             dsn = here("data_raw", "srtm_v1_4_90m", "environ.tif"))
@@ -321,3 +360,18 @@ plot(st_geometry(border), add = TRUE, reset = FALSE)
 # Distance to river 
 # Distance to road
 # Perturbation probability (forestatrisk)
+
+
+### Tropical Moist Forest
+download.file("https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2010&lat=S20&lon=E160",
+              destfile = here("data_raw", "tmf_ec_jrc", "TMF_20_160noExtent.tif"), method = 'auto', mode = "wb")
+sourcefile <- here("data_raw", "tmf_ec_jrc", "TMF_20_160noExtent.tif")
+destfile <- here("data_raw", "tmf_ec_jrc", "TMF_20_160.tif")
+system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} \\
+        -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff -srcnodata 0 -dstnodata {nodat} \\
+        {sourcefile} {destfile} \\
+        "))
+forest <- st_normalize(st_crop(read_stars(destfile), border))
+write_stars(obj = forest, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = destfile)
+plot(forest)
