@@ -63,27 +63,6 @@ border <- sf::st_read(here("data_raw", "fao_gaul", paste0("gadm36_", ISO_country
                       layer=paste0("gadm36_", ISO_country_code, "_0"), quiet=FALSE)
 border <- st_transform(border[1], crs = EPSG)
 
-##==============================
-##
-##
-## Tropical Moist Forest
-##
-## https://forobs.jrc.ec.europa.eu/TMF/download/TMF_DataUsersGuide.pdf
-##==============================
-
-# file available only by 10° x 10° for moist forest
-download.file("https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2010&lat=S20&lon=E160",
-              destfile = here("data_raw", "tmf_ec_jrc", "TMF_20_160noExtent.tif"), method = 'auto', mode = "wb")
-sourcefile <- here("data_raw", "tmf_ec_jrc", "TMF_20_160noExtent.tif")
-destfile <- here("data_raw", "tmf_ec_jrc", "TMF_20_160_1km.tif")
-system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} \\
-        -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff -srcnodata 0 -dstnodata {nodat} \\
-        {sourcefile} {destfile} \\
-        "))
-# set water values to NA
-forest <- st_normalize(st_crop(read_stars(destfile), border))
-write_stars(obj = forest, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = destfile)
 
 ##==============================
 ##
@@ -138,6 +117,42 @@ write_stars(soilgrids, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nod
 # define border smaller
 border = st_crop(border, st_bbox(soilgrids))
 
+
+##==============================
+##
+##
+## Tropical Moist Forest
+##
+## https://forobs.jrc.ec.europa.eu/TMF/download/TMF_DataUsersGuide.pdf page 12
+##==============================
+
+# file available only by 10° x 10° for moist forest
+download.file("https://ies-ows.jrc.ec.europa.eu/iforce/tmf_v1/download.py?type=tile&dataset=AnnualChange_2010&lat=S20&lon=E160",
+              destfile = here("data_raw", "tmf_ec_jrc", "TMF_20_160noExtent.tif"), method = 'auto', mode = "wb")
+
+sourcefile <- here("data_raw", "tmf_ec_jrc", "TMF_20_160noExtent.tif")
+destfile <- here("data_raw", "tmf_ec_jrc", "TMF_20_160_1km.tif")
+system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} \\
+        -r average -tr 100 100 -te {Extent} -ot Int16 -of GTiff -srcnodata 0 -dstnodata {nodat} \\
+        {sourcefile} {destfile}"))
+forest <- st_as_stars(read_stars(destfile))
+forest[forest == 2] <- 1
+forest[forest == 4] <- 1
+forest[forest != 1] <- 0
+# forest <- st_normalize(st_crop(forest, border))
+# forest <- forest %in% c(1,2,4)
+write_stars(obj = forest, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = destfile)
+sourcefile <-  here("data_raw", "tmf_ec_jrc", "TMF_20_160_1km.tif")
+destfile <- here("data_raw", "tmf_ec_jrc", "TMF_20_160_1kmBool.tif")
+system(glue("gdalwarp -overwrite -tr 1000 1000 -r average  -ot Int16 -of GTiff -srcnodata {nodat} -dstnodata {nodat} \\
+        {sourcefile} {destfile}"))
+forest <- read_stars(destfile)
+forest <- st_normalize(st_crop(forest, border))
+# set water values to NA
+write_stars(obj = forest, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = destfile)
+
 #====== Elevation, slope aspect, roughness #======
 # SRTM at 90m resolution from https://dwtkns.com/srtm/ version 4.1
 ## Download and unzip CGIAR-CSI 90m DEM data 
@@ -165,16 +180,6 @@ system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t}  \\
         -r bilinear -tr 90 90 -ot Int16 -of GTiff \\
         {sourcefile} \\
         {destfile}"))
-
-# write_stars(elev, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-#            dsn = destfile, layer = 1)
-# borders <- st_bbox(soilgrids)
-# elev <- st_crop(read_stars(destfile), border)
-# border <- st_read(paste(here("data_raw", "fao_gaul"), "gadm36_NCL.gpkg", sep = "/"), layer = "gadm36_NCL_0")
-# border <- st_transform(border,crs = st_crs(elev))
-# plot(elev,axes = TRUE, reset = FALSE)
-# plot(st_geometry(border), add = TRUE, reset = FALSE)
-
 
 ## Compute slope, aspect and roughness using gdaldem 
 # compute slope
