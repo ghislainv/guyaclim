@@ -32,8 +32,8 @@ get_extent <- function(ISO_country_code, EPSG, area_borders=NULL, verbose=TRUE, 
     st_as_sfc() %>%
     st_transform(crs=EPSG) %>%
     st_bbox()
-  latmin = bb_ll[2]
-  latmax = bb_ll[1]
+  latmin = bb_ll[1]
+  latmax = bb_ll[2]
   longmin = bb_ll[3]
   longmax = bb_ll[4]
   # Bounding box for New Caledonia
