@@ -23,7 +23,7 @@ library(dismo) # for function bioclim
 
 ## gdalwrap options
 # from output/extent.txt
-Extent <- readLines(here("output/reExtent_short.txt"))
+Extent <- readLines(here("output/extent_short.txt"))
 Res <- "1000"
 nodat <- -9999
 proj.s <- "EPSG:4326"
@@ -108,7 +108,6 @@ borderExtent <- as.integer(strsplit(Extent, split = " ")[[1]])
 names(borderExtent) <- c("xmin", "ymin", "xmax", "ymax")
 border <- st_crop(border, st_bbox(borderExtent))
 
-elev <- read_stars(here("data_raw", "srtm_v1_4_90m", "elevation_1km.tif"))
 for(var in c("tasmin", "tasmax", "tas_", "pr", "bio", "tcc", "pet_penman"))
 { 
   files.tif <- list.files(here("data_raw", "chelsa_v2_1", "temp"), pattern = var, full.names = TRUE)
@@ -118,8 +117,7 @@ for(var in c("tasmin", "tasmax", "tas_", "pr", "bio", "tcc", "pet_penman"))
     destfile <- gsub(".tif", "_1km.tif", files.tif[i])
     system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t} \\
         -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff -srcnodata 0 -dstnodata {nodat} \\
-        {sourcefile} \\
-        {destfile}"))
+        {sourcefile} {destfile}"))
     reSizeFiles <- st_crop(read_stars(destfile), border)
     write_stars(obj = reSizeFiles, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
                 dsn = destfile)
@@ -128,6 +126,9 @@ for(var in c("tasmin", "tasmax", "tas_", "pr", "bio", "tcc", "pet_penman"))
   files.tif <- list.files(here("data_raw", "chelsa_v2_1", "temp"), pattern = var, full.names = TRUE)
   files.tif <- files.tif[grep("[[:digit:]]_1km", files.tif)] # remove original file but not delete it
   r <- read_stars(gtools::mixedsort(files.tif), along="band", NA_value = nodat) 
+  r <- split(r)
+  names(r) <- c(paste(var, 1:12, sep = ""))
+  r <- merge(r)
   # Define no data values out of New Caledonia border according to elevation map 
   write_stars(obj = r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
               dsn = here("data_raw","chelsa_v2_1", paste0(var,"_1km.tif")))
@@ -135,7 +136,7 @@ for(var in c("tasmin", "tasmax", "tas_", "pr", "bio", "tcc", "pet_penman"))
 }
 ###
 # file.remove(list.files(here("data_raw", "chelsa_v2_1", "temp"), pattern = "_1km", full.names = TRUE))
-### plot(read_stars(here("data_raw", "chelsa_v2_1", "temp", "bio12_1km.tif")))
+###
 
 # Stack Tasmin, Tasmax, Tas, Pr, Tcc, Pet Penman
 files.tif <- here("data_raw", "chelsa_v2_1", paste0(c("tasmin","tasmax","tas_","pr", "tcc", "pet_penman"),"_1km.tif"))
