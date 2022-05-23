@@ -7,9 +7,9 @@ library(RCurl)
 
 ISO_country_code = "NCL"
 full_name = " New Caledonia"
-EPSG = 3165
+EPSG = 3163
 proj.s <- "EPSG:4326"
-proj.t <- "EPSG:3165"
+proj.t <- "EPSG:3163"
 nodat <- -9999
 Extent <- readLines(here("output/extent_short.txt"))
 border <- sf::st_read(here("data_raw", "fao_gaul", paste0("gadm36_", ISO_country_code, ".gpkg")),

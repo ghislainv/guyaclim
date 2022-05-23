@@ -7,10 +7,10 @@ library(tmaptools)
 library(terra)
 
 ISO_country_code = "NCL"
-EPSG = 3165
+EPSG = 3163
 nodat = -9999
 proj.s <- "EPSG:4326"
-proj.t <- "EPSG:3165"
+proj.t <- "EPSG:3163"
 
 ## Useless in code, but still lat long of New Caledonia
 # bb_ll <- c(163, -23, 169, -17)
@@ -80,7 +80,7 @@ unzip(here("data_raw", "fao_gaul", paste0("gpkg_gadm36_", ISO_country_code, ".zi
 # Read vector (level 0 for country borders)
 border <- sf::st_read(here("data_raw", "fao_gaul", paste0("gadm36_", ISO_country_code, ".gpkg")),
                        layer=paste0("gadm36_", ISO_country_code, "_0"), quiet=FALSE)
-border = st_transform(border[1], crs = 3165)
+border = st_transform(border[1], crs = EPSG)
 border = st_crop(border, borders)
 soilgrids = st_crop(soilgrids, border)
 write_stars(soilgrids, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,

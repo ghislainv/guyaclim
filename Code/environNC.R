@@ -20,10 +20,8 @@ library(glue)
 library(here)
 library(sf)
 library(stars)
-library(rgdal)
 library(rgrass7)
 library(osmextract)
-library(rgdal)
 library(RCurl)
 library(wdpar)
 library(countrycode)
@@ -31,7 +29,7 @@ library(stringr)
 
 source(here("Code", "gaulNC.R"))
 ## gdalwrap options
-EPSG = 3165
+EPSG = 3163
 nodat = -9999
 proj.s <- "EPSG:4326"
 proj.t <- paste("EPSG:", EPSG, sep = "")
@@ -155,13 +153,13 @@ rm("forest")
 
 dir.create(here("data_raw", "srtm_v1_4_90m"))
 dir.create(here("data_raw", "srtm_v1_4_90m", "temp"))
-tiles <- c( "69_16", "70_17")
+tiles <- c( "69_17", "70_17")
 
-for (i in 1:length(tiles)) {
-  if ( url.exists(paste0("https://srtm.csi.cgiar.org/wp-content/uploads/files/srtm_5x5/TIFF/srtm_", tiles[i], ".zip")) )
+for (i in tiles) {
+  if ( url.exists(paste0("https://srtm.csi.cgiar.org/wp-content/uploads/files/srtm_5x5/TIFF/srtm_", i, ".zip")) )
   {
-    dst <- paste0(here("data_raw", "srtm_v1_4_90m", "temp", "srtm_"), tiles[i], ".zip")
-    url.tile <- paste0("https://srtm.csi.cgiar.org/wp-content/uploads/files/srtm_5x5/TIFF/srtm_", tiles[i], ".zip")
+    dst <- paste0(here("data_raw", "srtm_v1_4_90m", "temp", "srtm_"), i, ".zip")
+    url.tile <- paste0("https://srtm.csi.cgiar.org/wp-content/uploads/files/srtm_5x5/TIFF/srtm_", i, ".zip")
     download.file(url = url.tile, destfile = dst, method = "wget", quiet = TRUE)
     unzip(dst, exdir = here("data_raw", "srtm_v1_4_90m", "temp"), overwrite = TRUE)
   }
@@ -176,7 +174,7 @@ write_stars(merge_all, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nod
 
 sourcefile <- here("data_raw", "srtm_v1_4_90m", "temp", "elevation_noExtent.tif")
 destfile <- here("data_raw", "srtm_v1_4_90m", "temp", "elevation.tif")
-system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t}  \\
+system(glue("gdalwarp -overwrite  -t_srs {proj.t}  \\
         -r bilinear -tr 90 90 -ot Int16 -of GTiff \\
         {sourcefile} \\
         {destfile}"))
@@ -232,7 +230,7 @@ system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t}  \\
 # long <- sort(unique(as.numeric(tiles[(length(tiles) *2 / 3 + 1):length(tiles) ])))
 # tiles <- tiles[1:(length(tiles) / 3)]
 
-## Reproject from lat long to UTM58S (epsg: 3165) and reframe on New Caledonia
+## Reproject from lat long to UTM58S (epsg: 3163) and reframe on New Caledonia
 # sourcefile <- list.files(here("data_raw", "srtm_v1_4_90m", "temp"), pattern = "*tif", full.names = TRUE)
 # for (i in 1:length(tiles)) 
 # {
@@ -350,11 +348,11 @@ system(glue("r.out.gdal -f --verbose --overwrite input=global_rad \\
 # srad
 in_f <- here("data_raw", "srtm_v1_4_90m", "temp", "srad.tif")
 out_f <- here("data_raw", "srtm_v1_4_90m", "srad_1km.tif")
-system(glue('gdalwarp -s_srs {proj.t} -t_srs {proj.t} \\
+system(glue('gdalwarp  -t_srs {proj.t} \\
         -r bilinear -tr 1000 1000 -ot Int16 -of GTiff \\
         -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}'))
 
-unlink(here("data_raw", "srtm_v1_4_90m", "temp"), recursive = TRUE)
+# unlink(here("data_raw", "srtm_v1_4_90m", "temp"), recursive = TRUE)
 
 ##===========================
 ##
@@ -387,6 +385,7 @@ write_stars(st_crop(read_stars(destfile), border), options = c("COMPRESS=LZW", "
             dsn = destfile)
 # plot(read_stars(destfile), breaks = "equal")
 rm("seaBool")
+
 ##=========================
 ##
 ## WDPA : World Database Protected Areas
@@ -432,7 +431,7 @@ download_file <- list.files(here("data_raw", "OSM", "temp"), pattern = "osm.pbf"
 type_object <- c("lines", "points", "lines", "multipolygons", "multipolygons")
 file_name <- c("roads", "place", "river", "lake", "reservoir")
 osm_key <- c("highway", "place", "waterway", "natural", "natural")
-osm_value <- c( 'highway=motorway or highway=trunk or highway=primary or highway=secondary or highway=primary_link or highway=secondary_link or highway=motorway_link)',
+osm_value <- c( 'highway=motorway or highway=trunk or highway=primary or highway=secondary or highway=primary_link or highway=secondary_link or highway=tertiary or highway=motorway_link)',
                 'place=city or place=town or place=village',
                 'waterway=river',
                 'water=lake',
@@ -570,7 +569,35 @@ names(r) <- c("forest", "aspect", "elevation", "roughness", "slope", "srad", "so
 r <- merge(r)
 writeLines(paste0(st_bbox(r), collapse = " "), here("output", "reExtent_short.txt"))
 write_stars(r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "srtm_v1_4_90m", "environ.tif"))
+            dsn = here("output", "environ.tif"))
+## Write object with good size
+dir.create(here("data_raw", "finalfiles"))
+write_stars(aspect, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw", "finalfiles", "aspectNC.tif"))
+write_stars(elevation, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw", "finalfiles", "elevationNC.tif"))
+write_stars(roughness, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw", "finalfiles", "roughnessNC.tif"))
+write_stars(slope, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw", "finalfiles", "slopeNC.tif"))
+write_stars(srad, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw", "finalfiles", "sradNC.tif"))
+write_stars(forest, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw", "finalfiles", "TMF_NC.tif"))
+write_stars(distanceForest, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw", "finalfiles", "distForestNC.tif"))
+write_stars(distanceSea, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw", "finalfiles", "distSeaNC.tif"))
+write_stars(distancePlace, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw", "finalfiles", "distancePlaceNC.tif"))
+write_stars(distanceRoad, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw", "finalfiles", "distanceRoadNC.tif"))
+write_stars(distancewater, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw", "finalfiles", "distancewaterNC.tif"))
+write_stars(soilgrids, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw", "finalfiles", "soilgridsNC.tif"))
+write_stars(WDPA, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
+            dsn = here("data_raw", "finalfiles", "WDPA_NC.tif"))
 rm("r")
 rm("aspect", "slope", "srad", "elevation", "roughness", "soilgrids", "forest", "border",
-   "distanceForest", "distanceSea", "distanceRoads", "distancePlace", "WDPA")
+   "distanceForest", "distanceSea", "distanceRoad", "distancewater", "distancePlace", "WDPA")

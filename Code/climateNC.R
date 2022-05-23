@@ -3,7 +3,7 @@
 ## Ghislain Vieilledent <ghislain.vieilledent@cirad.fr>
 ## Jeanne Clément <jeanne.clement@cirad.fr>
 ##
-## April 2022
+## May 2022
 ##
 
 ## gdal library is needed to run this script
@@ -12,47 +12,23 @@
 # Libraries
 library(glue)
 library(here) 
-library(gtools) # for function mixedsort to order files 
 library(sf) # for spatial sf objects 
 library(stars) # for spatial stars objects 
-library(raster)
-library(rgdal) # to use gdal  
 library(insol) # for function daylength
-library(rgrass7) # for function initGRASS
-library(dismo) # for function bioclim
 
-## gdalwrap options
-# from output/extent.txt
 Extent <- readLines(here("output/extent_short.txt"))
-Res <- "1000"
 nodat <- -9999
+EPSG <- 3163
 proj.s <- "EPSG:4326"
-proj.t <- "EPSG:3165" 
+proj.t <- paste0("EPSG:", EPSG) 
 ISO_country_code <- "NCL"
-EPSG <- 3165
 
-## Initialize GRASS
-setwd(here("data_raw"))
-dir.create("grassdata")
-Sys.setenv(LD_LIBRARY_PATH=paste("/usr/lib/grass80/lib", Sys.getenv("LD_LIBRARY_PATH"),sep=":"))
-# use a georeferenced raster
-files.tif <- list.files(here("data_raw", "worldclim_v2_1"), pattern="crop", full.names = TRUE)
-system(glue('grass -c {files.tif[1]} grassdata/climate'))
-# connect to grass database
-initGRASS(gisBase="/usr/lib/grass80", 
-          gisDbase="grassdata", home=tempdir(), 
-          location="climate", mapset="PERMANENT",
-          override=TRUE)
-
-#==== PET, CWD and NDM ====
-## function to compute PET, CWD and NDM
-## PET: potential evapotranspiration (Thornthwaite equation,1948) (or (Priestley-Taylor equation,1972)?)
-## CWD: climatic water deficit
-## NDM: number of dry months
-
-#=========== Chelsa v2.1 =================
-#===== Current climate #================
-# Website : https://chelsa-climate.org/
+##==============================
+##
+## Chelsa v2.1
+## Current climate
+##Website : https://chelsa-climate.org/
+##============================== 
 ## References : 
 # Scientific publication: 
 # Karger, D.N., Conrad, O., Böhner, J., Kawohl, T., Kreft, H., Soria-Auza, R.W., Zimmermann, 
@@ -90,7 +66,12 @@ for(m in c(paste0('0',1:9),10:12)){
                 destfile = here("data_raw", "chelsa_v2_1", "temp", paste0("pet_penman",m,".tif")), method = 'wget')
 }
 
-#====== 19 Bioclimatic variables =========
+##==============================
+##
+## 19 Bioclimatic variables
+##
+##==============================
+
 for(i in 1:19){
   # 19 Bioclimatic variables 
   # See https://chelsa-climate.org/wp-admin/download-page/CHELSA_tech_specification_V2.pdf for details 
@@ -98,8 +79,9 @@ for(i in 1:19){
                 destfile=here("data_raw", "chelsa_v2_1", "temp", paste0("bio",i,".tif")), method = 'wget')
 }
 
-# Reproject from lat long to UTM58S (epsg: 3165), set resolution to 1km
+# Reproject from lat long to UTM58S (epsg: 3163), set resolution to 1km
 # Reframe on New Caledonia and set no data values in sea
+
 
 border <- sf::st_read(here("data_raw", "fao_gaul", paste0("gadm36_", ISO_country_code, ".gpkg")),
                       layer=paste0("gadm36_", ISO_country_code, "_0"), quiet=FALSE)
@@ -119,13 +101,19 @@ for(var in c("tasmin", "tasmax", "tas_", "pr", "bio", "tcc", "pet_penman"))
         -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff -srcnodata 0 -dstnodata {nodat} \\
         {sourcefile} {destfile}"))
     reSizeFiles <- st_crop(read_stars(destfile), border)
+    if (var %in% c("tasmin", "tasmax", "tas_"))
+    {
+      # stock °C as integer to reduce size
+      # °C * 10 to keep information
+      reSizeFiles <- round(reSizeFiles * 10)
+    }
     write_stars(obj = reSizeFiles, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
                 dsn = destfile)
     # file.remove(sourcefile)
   }
   files.tif <- list.files(here("data_raw", "chelsa_v2_1", "temp"), pattern = var, full.names = TRUE)
   files.tif <- files.tif[grep("[[:digit:]]_1km", files.tif)] # remove original file but not delete it
-  r <- read_stars(gtools::mixedsort(files.tif), along="band", NA_value = nodat) 
+  r <- read_stars(sort(files.tif), along="band", NA_value = nodat) 
   r <- split(r)
   names(r) <- c(paste(var, 1:12, sep = ""))
   r <- merge(r)
@@ -140,76 +128,47 @@ for(var in c("tasmin", "tasmax", "tas_", "pr", "bio", "tcc", "pet_penman"))
 
 # Stack Tasmin, Tasmax, Tas, Pr, Tcc, Pet Penman
 files.tif <- here("data_raw", "chelsa_v2_1", paste0(c("tasmin","tasmax","tas_","pr", "tcc", "pet_penman"),"_1km.tif"))
-(r <- read_stars(files.tif, along = "band"))
+r <- c(read_stars(files.tif[1]), read_stars(files.tif[2]), read_stars(files.tif[3]), read_stars(files.tif[4]),
+       read_stars(files.tif[5]), read_stars(files.tif[6]), along = "band")
 write_stars(obj = r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
             dsn = here("data_raw","chelsa_v2_1", "clim_1km.tif"))
 # file.remove(files.tif)
+rm(r)
 
-#==== PET, CWD and NDM ====
+##==============================
+##
+## CWD & NDM
+## 
+## CWD: climatic water deficit
+## NDM: number of dry months
+##==============================
 
-# pet.cwd.ndm
 clim <- read_stars(here("data_raw", "chelsa_v2_1","clim_1km.tif"), along="band")
-
 for (i in 1:12)
 {
-  # pet - prec
+  # PET_PENMAN - Pr
   cwd <- clim[,,,60 + i] - clim[,,,36 + i]
   clim <- merge(c(split(clim), split(cwd)))
 }
-
+rm("cwd")
 for (i in 1:12)
 {
-  # Number of dry month ie cwd > 0
+  # Number of Dry Month ie CWD > 0
   ndm <- clim[,,,73 + i] > 0 
   clim <- merge(c(split(clim), split(ndm)))
 }
+rm("ndm")
+
+##==============================
+##
+## Output & Names
+##
+##==============================
 clim <- split(clim)
 names(clim) <- c(paste("tmin", 1:12,sep = ""), paste("tmax", 1:12, sep = ""), paste("tavg", 1:12, sep = ""),
                  paste("prec", 1:12, sep = ""), paste("tcc", 1:12, sep = ""), paste("pet", 1:12, sep = ""),
                  paste("cwd", 1:12, sep = ""), paste("ndm", 1:12, sep = ""))
 clim <- merge(clim)
-write_stars(obj=c(pet.cwd.ndm$PET12,pet.cwd.ndm$PET,pet.cwd.ndm$CWD,pet.cwd.ndm$NDM, along="band"),
-            overwrite=TRUE, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value=nodat,
-            dsn=paste(here("data_raw","chelsa_v2_1","pet_cwd_ndm_1km.tif")))
-
-#===== Output stack ======
-clim <- read_stars(here("data_raw","chelsa_v2_1","clim_1km.tif"), along="band")
-bioclim <- read_stars(here("data_raw","chelsa_v2_1","bio_1km.tif"), along="band")
-pet.cwd.ndm <- read_stars(here("data_raw","chelsa_v2_1","pet_cwd_ndm_1km.tif"), along="band")
-os <- c(clim,bioclim,pet.cwd.ndm, along="band")
-os <- split(os, "band")
-names(os) <- c(paste("tmin", 1:12,sep = ""), paste("tmax", 1:12, sep = ""), paste("tavg", 1:12, sep = ""),
-               paste("prec", 1:12, sep = ""), paste("tcc", 1:12, sep = ""), paste("bio", 1:19, sep = ""),
-               paste("pet", 1:12, sep = ""), "pet", "cwd", "ndm")
-write_stars(obj=merge(os), overwrite=TRUE, options = c("COMPRESS=LZW","PREDICTOR=2"),
-            NA_value=nodat, dsn=paste(here("output"),"current_chelsa.tif", sep="/"))
-# type="Int16" to reduce size => transfrom Temperatures in °C*10 or find a way to keep scale and offset from Chelsa 
-##= Plot
-os <- read_stars(paste(here("output"),"current_chelsa.tif", sep="/"), along="band")
-# check if all bands have same number of NAs 
-apply(is.na(os)[[1]],3,sum)
-# chack overlap with border
-border <- st_read(here("data_raw","fao_gaul","gadm36_NCL.gpkg"), layer = "gadm36_NCL_0")# FAO_GAUL_NCL.kml
-border <- st_transform(border,crs = st_crs(os))
-plot(os[,,,1],axes = TRUE, reset = FALSE)
-plot(border, add=TRUE, col = NA)
-## PET
-# Pet 1:12 monthly and annual pet 
-png(here("output","pet_chelsa.png"), width=600,
-    height=600, res=72, pointsize=16)
-plot(os[,,,68:80])
-dev.off()
-
-## NDM
-png(here("output","ndm_chelsa.png"), width=600,
-    height=600, res=72, pointsize=16)
-par(mar=c(3,3,1,1))
-plot(os[,,,82], main="ndm")
-dev.off()
-
-## CWD
-png(here("output","cwd_chelsa.png"), width=600, height=600, res=72, pointsize=16)
-par(mar=c(3,3,1,1))
-plot(os[,,,81], main="cwd")
-dev.off()
-
+write_stars(obj = clim, overwrite = TRUE, options = c("COMPRESS=LZW", "PREDICTOR=2"), NA_value = nodat,
+            dsn = here("output", "current_chelsaNC.tif"))
+rm("clim")
