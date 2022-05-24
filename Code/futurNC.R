@@ -112,12 +112,12 @@ for (model in c("GFDL-ESM4", "IPSL-CM6A-LR", "MPI-ESM1-2-HR", "MRI-ESM2-0", "UKE
                 dsn = here("data_raw","chelsa_v2_1", "futur", model, paste0(var,"_1km.tif")))
     # file.remove(files.tif)
   }
-  # Stack Tasmin, Tasmax, Tas, Pr, Tcc, Pet Penman
+  # Stack Tasmin, Tasmax, Tas, Pr & Bio
   files.tif <- here("data_raw", "chelsa_v2_1", "futur", model, paste0(c("tasmin","tasmax","tas_","pr", "bio"),"_1km.tif"))
   r <- c(read_stars(files.tif[1]), read_stars(files.tif[2]), read_stars(files.tif[3]), 
          read_stars(files.tif[4]), read_stars(files.tif[5]), along = "band")
   write_stars(obj = r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-              dsn = here("data_raw","chelsa_v2_1", "futur", model, paste0(model, "_1km.tif")))
+              dsn = here("output", paste0(model, "_1km.tif")))
               # file.remove(files.tif)
 }
 

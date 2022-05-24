@@ -153,6 +153,51 @@ rm("forest")
 
 dir.create(here("data_raw", "srtm_v1_4_90m"))
 dir.create(here("data_raw", "srtm_v1_4_90m", "temp"))
+tiles_srtm <- function(extent_latlong)
+{
+  # Compute lat/long tiles for SRTM data from an extent.
+  # This function computes lat/long tiles for SRTM data from an extent
+  # in lat/long. See `<http://dwtkns.com/srtm/>`_. SRTM tiles are 5x5
+  # degrees. x: -180/+180, y: +60/-60.
+  # :param extent_latlong: Extent in lat/long: (xmin, ymin, xmax, ymax).
+  # :return: A tuple of two strings indicating tile numbers for lat and long.
+
+  # Tiles for SRTM data
+  xmin_latlong <- floor(extent_latlong[1] / 5) * 5
+  ymin_latlong <- floor(extent_latlong[3] / 5) * 5
+  xmax_latlong <- ceiling(extent_latlong[2] / 5) * 5
+  ymax_latlong <- ceiling(extent_latlong[4] / 5) * 5
+
+  x <- xmin_latlong
+  y <- ymin_latlong
+  tileslat <- NULL
+  tileslong <- NULL
+  tiles <- NULL
+  repeat {
+    repeat {
+      tileslat <- c(tileslat, x / 5 + 37)
+      tileslong <- c(tileslong, -y / 5 + 12)
+      y <- y + 5
+      if (y > ymax_latlong) {
+        break
+      }
+    }
+    x <- x + 5
+    y <- ymin_latlong
+    if (x > xmax_latlong) {
+      break
+    }
+  }
+  for (i in 1:length(tileslat))
+  {
+    tiles <- c(tiles, paste(str_pad(tileslat[i], 2, side = "left", pad = "0"),
+                            str_pad(tileslong[i], 2, side = "left", pad = "0"), sep = "_"))
+    # add 0 if value between 1-9
+  }
+  return(tiles)
+}
+
+tiles <- tiles_srtm(as.numeric(strsplit(readLines(here("output/extent_short_latlong.txt")), " ")[[1]]))
 tiles <- c( "69_17", "70_17")
 
 for (i in tiles) {
@@ -165,113 +210,17 @@ for (i in tiles) {
   }
 }
 
-## Merge srtm with c.stars
+# Merge and Reproject with EPSG 3163
 sourcefile <- list.files(here("data_raw", "srtm_v1_4_90m", "temp"), pattern = "*.tif", full.names = TRUE)
-merge_all <- c(read_stars(sourcefile[1]), read_stars(sourcefile[2]), along = 1)
+file<-file(here("data_raw", "srtm_v1_4_90m", "temp", "sourcefilevrt.txt"))
+writeLines(sourcefile, file)
+close(file)
 
-write_stars(merge_all, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw","srtm_v1_4_90m","temp", "elevation_noExtent.tif"), layer = 1)
-
-sourcefile <- here("data_raw", "srtm_v1_4_90m", "temp", "elevation_noExtent.tif")
-destfile <- here("data_raw", "srtm_v1_4_90m", "temp", "elevation.tif")
-system(glue("gdalwarp -overwrite  -t_srs {proj.t}  \\
-        -r bilinear -tr 90 90 -ot Int16 -of GTiff \\
-        {sourcefile} \\
-        {destfile}"))
-
-## working but too big for my computer
-
-# tiles_srtm <- function(extent_latlong)
-# {
-#   # Compute lat/long tiles for SRTM data from an extent.
-#   # This function computes lat/long tiles for SRTM data from an extent
-#   # in lat/long. See `<http://dwtkns.com/srtm/>`_. SRTM tiles are 5x5
-#   # degrees. x: -180/+180, y: +60/-60.
-#   # :param extent_latlong: Extent in lat/long: (xmin, ymin, xmax, ymax).
-#   # :return: A tuple of two strings indicating tile numbers for lat and long.
-#   
-#   # Tiles for SRTM data
-#   xmin_latlong <- floor(extent_latlong[1] / 5) * 5
-#   ymin_latlong <- floor(extent_latlong[3] / 5) * 5
-#   xmax_latlong <- ceiling(extent_latlong[2] / 5) * 5
-#   ymax_latlong <- ceiling(extent_latlong[4] / 5) * 5
-#   
-#   x <- xmin_latlong
-#   y <- ymin_latlong
-#   tileslat <- NULL
-#   tileslong <- NULL
-#   tiles <- NULL
-#   repeat {
-#     repeat {
-#       tileslat <- c(tileslat, x / 5 + 37)
-#       tileslong <- c(tileslong, -y / 5 + 12)
-#       y <- y + 5
-#       if (y > ymax_latlong) {
-#         break
-#       }
-#     }
-#     x <- x + 5
-#     y <- ymin_latlong 
-#     if (x > xmax_latlong) {
-#       break
-#     }
-#   }
-#   for (i in 1:length(tileslat)) 
-#   {
-#     tiles <- c(tiles, paste(str_pad(tileslat[i], 2, side = "left", pad = "0"), 
-#                             str_pad(tileslong[i], 2, side = "left", pad = "0"), sep = "_"))
-#     # add 0 if value between 1-9
-#   }
-#   return(c(tiles, tileslat, tileslong))
-# }
-
-# tiles <- tiles_srtm(as.numeric(strsplit(readLines(here("output/extent_short_latlong.txt")), " ")[[1]]))
-# lat <- unique(as.numeric(tiles[(length(tiles) / 3 + 1):(length(tiles) * 2 / 3) ]))
-# long <- sort(unique(as.numeric(tiles[(length(tiles) *2 / 3 + 1):length(tiles) ])))
-# tiles <- tiles[1:(length(tiles) / 3)]
-
-## Reproject from lat long to UTM58S (epsg: 3163) and reframe on New Caledonia
-# sourcefile <- list.files(here("data_raw", "srtm_v1_4_90m", "temp"), pattern = "*tif", full.names = TRUE)
-# for (i in 1:length(tiles)) 
-# {
-#   destfile <- here("data_raw", "srtm_v1_4_90m", "temp", paste(tiles[i],".tif", sep =""))
-#   system(glue("gdalwarp -overwrite -s_srs {proj.s} -t_srs {proj.t}  \\
-#         -r bilinear -tr 90 90 -ot Int16 -of GTiff \\
-#         {sourcefile[i]} {destfile}"))
-# }
-
-## Merge srtm with c.stars
-
-# bool_init <- TRUE
-# for (i in lat) 
-# {
-#   sourcefile <- list.files(here("data_raw", "srtm_v1_4_90m", "temp"), pattern = paste(i, "\\w+\\.tif", sep = ""),
-#                            full.names = TRUE)
-#   merge_long <- read_stars(sourcefile[1])
-#   for (j in 2:length(long))
-#   {
-#     if (paste(lat[i], "_", long[j], sep = "") %in% tiles)
-#     {
-#       merge_long <- c(merge_long, read_stars(sourcefile[j]), along = 2)
-#     }
-#     else
-#     {
-#       merge_long <- c(merge_long, st_as_stars(matrix(NA, 6000, 6000)), along = 2) # create artificial stars empty
-#     }
-#   }
-#   if ( bool_init )
-#   {
-#     merge_all <- merge_long
-#     bool_init <- FALSE
-#   }else 
-#   {
-#     merge_all <- c(merge_all, merge_long, along = 1)
-#   }
-# }
-# 
-# write_stars(merge_all, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-#             dsn = here("data_raw","srtm_v1_4_90m","temp", "elevation_noExtent.tif"), layer = 1)
-
+destfile <- here("data_raw", "srtm_v1_4_90m", "temp", "srtm.vrt")
+system(glue('gdalbuildvrt {destfile} -input_file_list {here("data_raw", "srtm_v1_4_90m", "temp", "sourcefilevrt.txt")}'))
+system(glue('gdalwarp -overwrite -t_srs {proj.t} -tap -r bilinear \\
+            -co "COMPRESS=LZW" -co "PREDICTOR=2" -te {Extent} -ot Int16 -of GTiff \\
+            -tr 90 90 {destfile} {here("data_raw", "srtm_v1_4_90m", "temp", "elevation.tif")}'))
 
 ## Compute slope, aspect and roughness using gdaldem 
 # compute slope

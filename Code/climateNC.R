@@ -126,10 +126,10 @@ for(var in c("tasmin", "tasmax", "tas_", "pr", "bio", "tcc", "pet_penman"))
 # file.remove(list.files(here("data_raw", "chelsa_v2_1", "temp"), pattern = "_1km", full.names = TRUE))
 ###
 
-# Stack Tasmin, Tasmax, Tas, Pr, Tcc, Pet Penman
-files.tif <- here("data_raw", "chelsa_v2_1", paste0(c("tasmin","tasmax","tas_","pr", "tcc", "pet_penman"),"_1km.tif"))
+# Stack Tasmin, Tasmax, Tas, Pr, Tcc, Pet Penman & bio
+files.tif <- here("data_raw", "chelsa_v2_1", paste0(c("tasmin","tasmax","tas_","pr", "tcc", "pet_penman", "bio"),"_1km.tif"))
 r <- c(read_stars(files.tif[1]), read_stars(files.tif[2]), read_stars(files.tif[3]), read_stars(files.tif[4]),
-       read_stars(files.tif[5]), read_stars(files.tif[6]), along = "band")
+       read_stars(files.tif[5]), read_stars(files.tif[6]), read_stars(files.tif[7]), along = "band")
 write_stars(obj = r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
             dsn = here("data_raw","chelsa_v2_1", "clim_1km.tif"))
 # file.remove(files.tif)
@@ -167,7 +167,7 @@ rm("ndm")
 clim <- split(clim)
 names(clim) <- c(paste("tmin", 1:12,sep = ""), paste("tmax", 1:12, sep = ""), paste("tavg", 1:12, sep = ""),
                  paste("prec", 1:12, sep = ""), paste("tcc", 1:12, sep = ""), paste("pet", 1:12, sep = ""),
-                 paste("cwd", 1:12, sep = ""), paste("ndm", 1:12, sep = ""))
+                 paste("bio", 1:19, sep = ""), paste("cwd", 1:12, sep = ""), paste("ndm", 1:12, sep = ""))
 clim <- merge(clim)
 write_stars(obj = clim, overwrite = TRUE, options = c("COMPRESS=LZW", "PREDICTOR=2"), NA_value = nodat,
             dsn = here("output", "current_chelsaNC.tif"))
