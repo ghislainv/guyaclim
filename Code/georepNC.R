@@ -3,6 +3,7 @@ library(here)
 library(glue)
 library(stars)
 library(rgdal)
+library(archive)
 
 # Create directories
 dir.create(here("data_raw", "georep"))
@@ -29,7 +30,8 @@ border <- st_crop(border, st_bbox(borderExtent))
 dst <- paste0(here("data_raw", "georep", "geol", "temp/"), "geol", ".7z")
 url.tile <- "https://sig-public.gouv.nc//plateforme_telechargement/Geologie_SHP_Lyr_50000.7z"
 download.file(url = url.tile, destfile = dst, method = "wget", quiet = TRUE)
-system('7z e  -odata_raw/georep/geol/temp/ data_raw/georep/geol/temp/geol.7z')
+archive_extract(dst, dir = here("data_raw", "georep", "geol", "temp"))
+# system('7z e -o{here("data_raw","georep", "geol", "temp", "geol.7z")}')
 
 dst <- paste0(here("data_raw", "georep", "peridotite", "temp/"), "peridotite", ".zip")
 url.tile <- "https://opendata.arcgis.com/api/v3/datasets/4daa93c2634048549d0a43c1ba7fe4aa_3/downloads/data?format=shp&spatialRefId=3163"
@@ -38,7 +40,7 @@ unzip(dst, exdir = here("data_raw", "georep", "peridotite", "temp"), overwrite =
 
 # Convert peridotites from .shp to .tif
 
-sourcefile <- here("data_raw", "georep", "peridotite", "temp", "Massifs_de_peridotites.shp")
+sourcefile <- here("data_raw", "georep", "peridotite", "temp", "Massifs_de_p%C3%A9ridotites.shp")
 destfile <- here("data_raw", "georep", "peridotite", "peridotite.shp")
 system(glue("ogr2ogr -overwrite -f 'ESRI Shapefile' \\
               -lco ENCODING=UTF-8 {destfile} {sourcefile}  "))
@@ -48,7 +50,7 @@ system(glue("gdal_rasterize  {sourcefile} -te {Extent} -tap -burn 1 -co 'COMPRES
               -ot Byte -of GTiff -a_nodata {0} -a_srs {proj.t} -tr 1000 1000 {destfile}"))
 
 # Convert geology from .shp to .tif
-sourcefile <- here("data_raw", "georep", "geol", "temp", "SurfaceGeologique_50000_Vbeta.shp")
+sourcefile <- here("data_raw", "georep", "geol", "temp", "Geologie_SHP_Lyr_50000", "SurfaceGeologique_50000_Vbeta.shp")
 destfile <- here("data_raw", "georep", "geol", "temp" )
 litho <- readOGR(sourcefile)
 names_lithologie <- unique(litho$lithologie)
@@ -57,7 +59,7 @@ for (i in 1:length(litho$code)){
 litho$code[i] <- nb[litho$lithologie[i] == names_lithologie][1]
 }
 litho$code <- as.integer(litho$code)
-writeOGR(litho, destfile, layer = "geol", driver = "ESRI Shapefile")
+writeOGR(litho, destfile, layer = "geology", driver = "ESRI Shapefile")
 rm("litho")
 
 sourcefile <- here("data_raw", "georep", "geol", "temp", "geol.shp")
@@ -90,7 +92,7 @@ srad <- read_stars(here("data_raw", "finalfiles", "sradNC.tif"))
 soilgrids <- read_stars(here("data_raw", "finalfiles", "soilgridsNC.tif"))
 distanceForest <- read_stars(here("data_raw", "finalfiles", "distForestNC.tif"))
 distanceSea <- read_stars(here("data_raw", "finalfiles", "distSeaNC.tif"))
-distanceRoad <- read_stars(here("data_raw", "finalfiles", "distanceRoadsNC.tif"))
+distanceRoad <- read_stars(here("data_raw", "finalfiles", "distanceRoadNC.tif"))
 distancePlace <- read_stars(here("data_raw", "finalfiles", "distancePlaceNC.tif"))
 distancewater <- read_stars(here("data_raw", "finalfiles", "distancewaterNC.tif"))
 WDPA <- read_stars(here("data_raw", "finalfiles", "WDPA_NC.tif"))
@@ -159,3 +161,4 @@ write_stars(r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
 plot(r)
 dev.print(device = png, file = here("output", "environNC.png"), width = 1000)
 dev.off()
+

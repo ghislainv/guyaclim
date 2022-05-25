@@ -73,8 +73,8 @@ for(m in c(paste0('0',1:9),10:12)){
 ##==============================
 
 for(i in 1:19){
-  # 19 Bioclimatic variables 
-  # See https://chelsa-climate.org/wp-admin/download-page/CHELSA_tech_specification_V2.pdf for details 
+  # 19 Bioclimatic variables
+  # See https://chelsa-climate.org/wp-admin/download-page/CHELSA_tech_specification_V2.pdf for details
   download.file(paste0('https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio',i,'_1981-2010_V.2.1.tif'),
                 destfile=here("data_raw", "chelsa_v2_1", "temp", paste0("bio",i,".tif")), method = 'wget')
 }
@@ -115,7 +115,7 @@ for(var in c("tasmin", "tasmax", "tas_", "pr", "bio", "tcc", "pet_penman"))
   files.tif <- files.tif[grep("[[:digit:]]_1km", files.tif)] # remove original file but not delete it
   r <- read_stars(sort(files.tif), along="band", NA_value = nodat) 
   r <- split(r)
-  names(r) <- c(paste(var, 1:12, sep = ""))
+  names(r) <- c(paste(var, 1:length(names(r)), sep = ""))
   r <- merge(r)
   # Define no data values out of New Caledonia border according to elevation map 
   write_stars(obj = r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
@@ -143,20 +143,40 @@ rm(r)
 ## NDM: number of dry months
 ##==============================
 
-clim <- read_stars(here("data_raw", "chelsa_v2_1","clim_1km.tif"), along="band")
+pr_file <- here("data_raw", "chelsa_v2_1","pr_1km.tif")
+pet_penman_file <- here("data_raw", "chelsa_v2_1","pet_penman_1km.tif")
+clim <- read_stars(here("data_raw", "chelsa_v2_1","clim_1km.tif"))
+
 for (i in 1:12)
 {
   # PET_PENMAN - Pr
-  cwd <- clim[,,,60 + i] - clim[,,,36 + i]
-  clim <- merge(c(split(clim), split(cwd)))
+   system(glue('gdal_calc.py -A {pet_penman_file} --A_band={i} -B {pr_file} --B_band={i} --quiet --type=UInt16 \\
+               --creation-option="COMPRESS=LZW" --creation-option="PREDICTOR=2"  --calc="A-B" \\
+               --outfile={here("data_raw", "chelsa_v2_1", "temp", paste0("cwd", i, "_1km.tif"))} --overwrite'))
+  cwd <- read_stars(here("data_raw", "chelsa_v2_1", "temp", paste0("cwd", i, "_1km.tif")))
+  names(cwd) <- paste0("cwd", i)
+  clim <- merge(c(split(clim), cwd))
 }
 rm("cwd")
 for (i in 1:12)
 {
-  # Number of Dry Month ie CWD > 0
-  ndm <- clim[,,,73 + i] > 0 
-  clim <- merge(c(split(clim), split(ndm)))
+  # Number of Dry Month ie sum(CWD > 0)
+  cwd_file <- here("data_raw", "chelsa_v2_1", "temp", paste0("cwd", i, "_1km.tif"))
+  ndm_file <- here("data_raw", "chelsa_v2_1", "temp", paste0("ndm", i, "_1km.tif"))
+  system(glue('gdal_calc.py -A {cwd_file} --A_band={1} --quiet --type=UInt16 \\
+              --creation-option="COMPRESS=LZW" --creation-option="PREDICTOR=2" \\
+              --outfile={ndm_file} --calc="A>0" --overwrite'))
+  ndm <-  read_stars(ndm_file)
+  names(ndm) <- paste0("ndm", i)
 }
+ndm_files <- list.files(here("data_raw", "chelsa_v2_1", "temp"), pattern = "ndm", full.names = TRUE)
+system(glue('gdal_calc.py -A {ndm_files[1]} -B {ndm_files[2]} -C {ndm_files[3]} -D {ndm_files[4]}  -E {ndm_files[5]} \\
+            -F {ndm_files[6]} -G {ndm_files[7]} -H {ndm_files[8]} -I {ndm_files[9]} -J {ndm_files[10]} -K {ndm_files[11]} \\
+            -L {ndm_files[12]} --quiet --type=UInt16 --creation-option="COMPRESS=LZW" --creation-option="PREDICTOR=2" \\
+            --outfile={here("data_raw", "chelsa_v2_1", "ndm_1km.tif")} \\
+            --calc="A+B+C+D+E+F+G+H+I+J+K+L" --overwrite'))
+ndm <- read_stars(here("data_raw", "chelsa_v2_1", "ndm_1km.tif"))
+clim <- merge(c(split(clim), ndm))
 rm("ndm")
 
 ##==============================
@@ -164,11 +184,7 @@ rm("ndm")
 ## Output & Names
 ##
 ##==============================
-clim <- split(clim)
-names(clim) <- c(paste("tmin", 1:12,sep = ""), paste("tmax", 1:12, sep = ""), paste("tavg", 1:12, sep = ""),
-                 paste("prec", 1:12, sep = ""), paste("tcc", 1:12, sep = ""), paste("pet", 1:12, sep = ""),
-                 paste("bio", 1:19, sep = ""), paste("cwd", 1:12, sep = ""), paste("ndm", 1:12, sep = ""))
-clim <- merge(clim)
+
 write_stars(obj = clim, overwrite = TRUE, options = c("COMPRESS=LZW", "PREDICTOR=2"), NA_value = nodat,
             dsn = here("output", "current_chelsaNC.tif"))
 rm("clim")

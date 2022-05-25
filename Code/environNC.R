@@ -198,7 +198,7 @@ tiles_srtm <- function(extent_latlong)
 }
 
 tiles <- tiles_srtm(as.numeric(strsplit(readLines(here("output/extent_short_latlong.txt")), " ")[[1]]))
-tiles <- c( "69_17", "70_17")
+# tiles <- c( "69_17", "70_17")
 
 for (i in tiles) {
   if ( url.exists(paste0("https://srtm.csi.cgiar.org/wp-content/uploads/files/srtm_5x5/TIFF/srtm_", i, ".zip")) )
