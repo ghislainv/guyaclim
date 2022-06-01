@@ -406,13 +406,13 @@ for (i in 1:length(osm_key))
   system(glue("gdal_proximity.py {file.tif} {distance.tif} -f -overwrite -co 'COMPRESS=LZW' -co 'PREDICTOR=2' \\
               -values 1 -ot Int16 -of GTiff -distunits GEO "))
   system(glue("gdalwarp -overwrite -r average -tr 1000 1000 -ot Int16 -srcnodata {nodat} -of GTiff \\
-              {distance.tif} {distance_1km.tif}"))
+              -dstnodata {nodat} {distance.tif} {distance_1km.tif}"))
 }
 unlink(here("data_raw", "OSM", "temp"), recursive = TRUE) # delete temporary files
 
 for (i in list.files(here("data_raw", "OSM"), pattern = "*distance_1km.tif", full.names = TRUE))
 {
-  write_stars(st_crop(read_stars(i), border), i)
+  write_stars(st_crop(read_stars(i), border), i, NA_value = nodat)
 }
 file.remove(list.files(here("data_raw", "OSM"), pattern = "distance.tif", full.name = TRUE)) # delete temporary files
 water <- paste("lake", "reservoir", "river", sep = "|")
@@ -432,121 +432,16 @@ file.remove(list.files(here("data_raw","OSM"), pattern = water, full.names = TRU
 ##
 ##=====================================
 
-forest <- read_stars(here("data_raw", "tmf_ec_jrc", "TMF_20_160_1km%.tif"))
-aspect <- read_stars(here("data_raw", "srtm_v1_4_90m", "aspect_1km.tif"))
-elevation <- read_stars(here("data_raw", "srtm_v1_4_90m", "elevation_1km.tif"))
-roughness <- read_stars(here("data_raw", "srtm_v1_4_90m", "roughness_1km.tif"))
-slope <- read_stars(here("data_raw", "srtm_v1_4_90m", "slope_1km.tif"))
-srad <- read_stars(here("data_raw", "srtm_v1_4_90m", "srad_1km.tif"))
-soilgrids <- read_stars(here("data_raw", "soilgrids250_v2_0", "soilgrids_1km.tif"))
-distanceForest <- read_stars(here("data_raw", "tmf_ec_jrc", "distForest.tif"))
-distanceSea <- read_stars(here("data_raw", "tmf_ec_jrc", "distSea.tif"))
-distanceRoad <- read_stars(here("data_raw", "OSM", "roadsdistance_1km.tif"))
-distancePlace <- read_stars(here("data_raw", "OSM", "placedistance_1km.tif"))
-distancewater <- read_stars(here("data_raw", "OSM", "wateringplacedistance_1km.tif"))
-WDPA <- read_stars(here("data_raw", "WDPA", "WDPA_1kmBool.tif"))
-
-border <- soilgrids # st_bbox(forest)
-
-forest <- st_normalize(st_crop(forest, border))
-aspect <- st_normalize(st_crop(aspect,border))
-elevation <- st_normalize(st_crop(elevation, border))
-roughness <- st_normalize(st_crop(roughness, border))
-slope <- st_normalize(st_crop(slope, border))
-srad <- st_normalize(st_crop(srad, border))
-soilgrids <- st_normalize(st_crop(soilgrids, border))
-distanceForest <- st_normalize(st_crop(distanceForest, border))
-distanceSea <- st_normalize(st_crop(distanceSea, border))
-distanceRoad <- st_normalize(st_crop(distanceRoad, border))
-distancePlace <- st_normalize(st_crop(distancePlace, border))
-distancewater <- st_normalize(st_crop(distancewater, border))
-WDPA <- st_normalize(st_crop(WDPA, border))
-
-x_to <- min(st_dimensions(forest)[['x']]$to, st_dimensions(aspect)[['x']]$to, st_dimensions(soilgrids)[['x']]$to, st_dimensions(srad)[['x']]$to,
-            st_dimensions(distanceForest)[['x']]$to, st_dimensions(distanceSea)[['x']]$to, st_dimensions(distanceRoad)[['x']]$to, 
-            st_dimensions(distancePlace)[['x']]$to, st_dimensions(distancewater)[['x']]$to, st_dimensions(WDPA)[['x']]$to)
-y_to <- min(st_dimensions(aspect)[['y']]$to, st_dimensions(soilgrids)[['y']]$to, st_dimensions(srad)[['y']]$to, st_dimensions(forest)[['y']]$to,
-            st_dimensions(distanceForest)[['y']]$to, st_dimensions(distanceSea)[['y']]$to, st_dimensions(distanceRoad)[['y']]$to, 
-            st_dimensions(distancePlace)[['y']]$to, st_dimensions(distancewater)[['y']]$to, st_dimensions(WDPA)[['y']]$to)
-
-forest         <- st_normalize(forest        [, 1 : x_to, (1 + st_dimensions(forest)[['y']]$to - y_to) : st_dimensions(forest)[['y']]$to])
-aspect         <- st_normalize(aspect        [, 1 : x_to, (1 + st_dimensions(aspect)[['y']]$to - y_to) : st_dimensions(aspect)[['y']]$to])
-elevation      <- st_normalize(elevation     [, 1 : x_to, (1 + st_dimensions(elevation)[['y']]$to - y_to) : st_dimensions(elevation)[['y']]$to])
-roughness      <- st_normalize(roughness     [, 1 : x_to, (1 + st_dimensions(roughness)[['y']]$to - y_to) : st_dimensions(roughness)[['y']]$to])
-slope          <- st_normalize(slope         [, 1 : x_to, (1 + st_dimensions(slope)[['y']]$to - y_to) : st_dimensions(slope)[['y']]$to])
-srad           <- st_normalize(srad          [, 1 : x_to, (1 + st_dimensions(srad)[['y']]$to - y_to) : st_dimensions(srad)[['y']]$to])
-soilgrids      <- st_normalize(soilgrids     [, 1 : x_to, (1 + st_dimensions(soilgrids)[['y']]$to - y_to) : st_dimensions(soilgrids)[['y']]$to])
-distanceForest <- st_normalize(distanceForest[, 1 : x_to, (1 + st_dimensions(distanceForest)[['y']]$to - y_to) : st_dimensions(distanceForest)[['y']]$to])
-distanceSea    <- st_normalize(distanceSea   [, 1 : x_to, (1 + st_dimensions(distanceSea)[['y']]$to - y_to) : st_dimensions(distanceSea)[['y']]$to])
-distanceRoad   <- st_normalize(distanceRoad [, 1 : x_to, (1 + st_dimensions(distanceRoad)[['y']]$to - y_to) : st_dimensions(distanceRoad)[['y']]$to])
-distancePlace  <- st_normalize(distancePlace [, 1 : x_to, (1 + st_dimensions(distancePlace)[['y']]$to - y_to) : st_dimensions(distancePlace)[['y']]$to])
-distancewater  <- st_normalize(distancewater [, 1 : x_to, (1 + st_dimensions(distancewater)[['y']]$to - y_to) : st_dimensions(distancewater)[['y']]$to])
-WDPA           <- st_normalize(WDPA          [, 1 : x_to, (1 + st_dimensions(WDPA)[['y']]$to - y_to) : st_dimensions(WDPA)[['y']]$to])
-
-st_dimensions(forest)[["x"]]$offset = round(st_bbox(border)$xmin)
-st_dimensions(forest)[["y"]]$offset = round(st_bbox(border)$ymax)
-st_dimensions(aspect)[["x"]]$offset = round(st_bbox(border)$xmin)
-st_dimensions(aspect)[["y"]]$offset = round(st_bbox(border)$ymax)
-st_dimensions(elevation)[["x"]]$offset = round(st_bbox(border)$xmin)
-st_dimensions(elevation)[["y"]]$offset = round(st_bbox(border)$ymax)
-st_dimensions(roughness)[["x"]]$offset = round(st_bbox(border)$xmin)
-st_dimensions(roughness)[["y"]]$offset = round(st_bbox(border)$ymax)
-st_dimensions(slope)[["x"]]$offset = round(st_bbox(border)$xmin)
-st_dimensions(slope)[["y"]]$offset = round(st_bbox(border)$ymax)
-st_dimensions(srad)[["x"]]$offset = round(st_bbox(border)$xmin)
-st_dimensions(srad)[["y"]]$offset = round(st_bbox(border)$ymax)
-st_dimensions(soilgrids)[["x"]]$offset = round(st_bbox(border)$xmin)
-st_dimensions(soilgrids)[["y"]]$offset = round(st_bbox(border)$ymax)
-st_dimensions(distanceForest)[["x"]]$offset = round(st_bbox(border)$xmin)
-st_dimensions(distanceForest)[["y"]]$offset = round(st_bbox(border)$ymax)
-st_dimensions(distanceSea)[["x"]]$offset = round(st_bbox(border)$xmin)
-st_dimensions(distanceSea)[["y"]]$offset = round(st_bbox(border)$ymax)
-st_dimensions(distanceRoad)[["x"]]$offset = round(st_bbox(border)$xmin)
-st_dimensions(distanceRoad)[["y"]]$offset = round(st_bbox(border)$ymax)
-st_dimensions(distancePlace)[["x"]]$offset = round(st_bbox(border)$xmin)
-st_dimensions(distancePlace)[["y"]]$offset = round(st_bbox(border)$ymax)
-st_dimensions(distancewater)[["x"]]$offset = round(st_bbox(border)$xmin)
-st_dimensions(distancewater)[["y"]]$offset = round(st_bbox(border)$ymax)
-st_dimensions(WDPA)[["x"]]$offset = round(st_bbox(border)$xmin)
-st_dimensions(WDPA)[["y"]]$offset = round(st_bbox(border)$ymax)
-
-r <- c(forest, aspect, elevation, roughness, slope, srad, soilgrids, distanceForest, distanceSea, 
-       distanceRoad, distancePlace, distancewater, WDPA, along = "band", try_hard = TRUE)
-r <- split(r)
-names(r) <- c("forest", "aspect", "elevation", "roughness", "slope", "srad", "soilgrids", 
-              "distanceForest", "distanceSea", "distanceRoad", "distancePlace", "distancewater", "WDPA")
-r <- merge(r)
-writeLines(paste0(st_bbox(r), collapse = " "), here("output", "reExtent_short.txt"))
-write_stars(r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("output", "environ.tif"))
-## Write object with good size
-dir.create(here("data_raw", "finalfiles"))
-write_stars(aspect, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "finalfiles", "aspectNC.tif"))
-write_stars(elevation, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "finalfiles", "elevationNC.tif"))
-write_stars(roughness, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "finalfiles", "roughnessNC.tif"))
-write_stars(slope, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "finalfiles", "slopeNC.tif"))
-write_stars(srad, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "finalfiles", "sradNC.tif"))
-write_stars(forest, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "finalfiles", "TMF_NC.tif"))
-write_stars(distanceForest, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "finalfiles", "distForestNC.tif"))
-write_stars(distanceSea, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "finalfiles", "distSeaNC.tif"))
-write_stars(distancePlace, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "finalfiles", "distancePlaceNC.tif"))
-write_stars(distanceRoad, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "finalfiles", "distanceRoadNC.tif"))
-write_stars(distancewater, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "finalfiles", "distancewaterNC.tif"))
-write_stars(soilgrids, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "finalfiles", "soilgridsNC.tif"))
-write_stars(WDPA, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw", "finalfiles", "WDPA_NC.tif"))
-rm("r")
-rm("aspect", "slope", "srad", "elevation", "roughness", "soilgrids", "forest", "border",
-   "distanceForest", "distanceSea", "distanceRoad", "distancewater", "distancePlace", "WDPA")
+system(glue('gdal_merge.py -ot Int16 -of GTiff -o {here("output", "environNC.tif")} -a_nodata {nodat} -separate \\
+            -co "COMPRESS=LZW" -co "PREDICTOR=2" \\
+            {here("data_raw", "tmf_ec_jrc", "TMF_20_160_1km%.tif")} {here("data_raw", "srtm_v1_4_90m", "aspect_1km.tif")} \\
+            {here("data_raw", "srtm_v1_4_90m", "elevation_1km.tif")} {here("data_raw", "srtm_v1_4_90m", "roughness_1km.tif")} \\
+            {here("data_raw", "srtm_v1_4_90m", "slope_1km.tif")} {here("data_raw", "srtm_v1_4_90m", "srad_1km.tif")} \\
+            {here("data_raw", "soilgrids250_v2_0", "soilgrids_1km.tif")} {here("data_raw", "tmf_ec_jrc", "distForest.tif")} \\
+            {here("data_raw", "tmf_ec_jrc", "distSea.tif")} {here("data_raw", "OSM", "roadsdistance_1km.tif")} \\
+            {here("data_raw", "OSM", "placedistance_1km.tif")} {here("data_raw", "OSM", "wateringplacedistance_1km.tif")} \\
+            {here("data_raw", "WDPA", "WDPA_1kmBool.tif")} '))
+environ <- split(read_stars(here("output", "environNC.tif")))
+names(environ) <- c("forest", "aspect", "elevation", "roughness", "slope", "srad", "soilgrids", 
+                    "distanceForest", "distanceSea", "distanceRoad", "distancePlace", "distancewater", "WDPA")
+write_stars(merge(environ), dsn = here("output", "environNC.tif"))

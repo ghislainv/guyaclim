@@ -15,6 +15,7 @@ library(here)
 library(sf) # for spatial sf objects 
 library(stars) # for spatial stars objects 
 library(insol) # for function daylength
+library(stringr)
 
 Extent <- readLines(here("output/extent_short.txt"))
 nodat <- -9999
@@ -76,7 +77,7 @@ for(i in 1:19){
   # 19 Bioclimatic variables
   # See https://chelsa-climate.org/wp-admin/download-page/CHELSA_tech_specification_V2.pdf for details
   download.file(paste0('https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio',i,'_1981-2010_V.2.1.tif'),
-                destfile=here("data_raw", "chelsa_v2_1", "temp", paste0("bio",i,".tif")), method = 'wget')
+                destfile=here("data_raw", "chelsa_v2_1", "temp", paste0("bio", str_pad(i, 2, pad = "0"), ".tif")), method = 'wget')
 }
 
 # Reproject from lat long to UTM58S (epsg: 3163), set resolution to 1km
@@ -101,14 +102,14 @@ for(var in c("tasmin", "tasmax", "tas_", "pr", "bio", "tcc", "pet_penman"))
         -r bilinear -tr 1000 1000 -te {Extent} -ot Int16 -of GTiff -srcnodata 0 -dstnodata {nodat} \\
         {sourcefile} {destfile}"))
     reSizeFiles <- st_crop(read_stars(destfile), border)
-    if (var %in% c("tasmin", "tasmax", "tas_"))
+    if (var %in% c("tasmin", "tasmax", "tas_") | (var == "bio" & i <= 11))
     {
       # stock °C as integer to reduce size
       # °C * 10 to keep information
       reSizeFiles <- round(reSizeFiles * 10)
     }
     write_stars(obj = reSizeFiles, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-                dsn = destfile)
+                type = "Int16", dsn = destfile)
     # file.remove(sourcefile)
   }
   files.tif <- list.files(here("data_raw", "chelsa_v2_1", "temp"), pattern = var, full.names = TRUE)
@@ -119,7 +120,7 @@ for(var in c("tasmin", "tasmax", "tas_", "pr", "bio", "tcc", "pet_penman"))
   r <- merge(r)
   # Define no data values out of New Caledonia border according to elevation map 
   write_stars(obj = r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-              dsn = here("data_raw","chelsa_v2_1", paste0(var,"_1km.tif")))
+              type = "Int16", dsn = here("data_raw","chelsa_v2_1", paste0(var,"_1km.tif")))
   # file.remove(files.tif)
 }
 ###
@@ -131,7 +132,7 @@ files.tif <- here("data_raw", "chelsa_v2_1", paste0(c("tasmin","tasmax","tas_","
 r <- c(read_stars(files.tif[1]), read_stars(files.tif[2]), read_stars(files.tif[3]), read_stars(files.tif[4]),
        read_stars(files.tif[5]), read_stars(files.tif[6]), read_stars(files.tif[7]), along = "band")
 write_stars(obj = r, options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat,
-            dsn = here("data_raw","chelsa_v2_1", "clim_1km.tif"))
+            type = "Int16", dsn = here("data_raw","chelsa_v2_1", "clim_1km.tif"))
 # file.remove(files.tif)
 rm(r)
 
@@ -145,46 +146,34 @@ rm(r)
 
 pr_file <- here("data_raw", "chelsa_v2_1","pr_1km.tif")
 pet_penman_file <- here("data_raw", "chelsa_v2_1","pet_penman_1km.tif")
-clim <- read_stars(here("data_raw", "chelsa_v2_1","clim_1km.tif"))
 
 for (i in 1:12)
 {
-  # PET_PENMAN - Pr
-   system(glue('gdal_calc.py -A {pet_penman_file} --A_band={i} -B {pr_file} --B_band={i} --quiet --type=UInt16 \\
-               --creation-option="COMPRESS=LZW" --creation-option="PREDICTOR=2"  --calc="A-B" \\
+  # CWD = PET_PENMAN - Pr
+   system(glue('gdal_calc.py -A {pet_penman_file} --A_band={i} -B {pr_file} --B_band={i} --quiet --type=Int16 \\
+               --creation-option="COMPRESS=LZW" --creation-option="PREDICTOR=2"  --calc="A-B" --NoDataValue={nodat} \\
                --outfile={here("data_raw", "chelsa_v2_1", "temp", paste0("cwd", i, "_1km.tif"))} --overwrite'))
-  cwd <- read_stars(here("data_raw", "chelsa_v2_1", "temp", paste0("cwd", i, "_1km.tif")))
-  names(cwd) <- paste0("cwd", i)
-  clim <- merge(c(split(clim), cwd))
 }
-rm("cwd")
+
 for (i in 1:12)
 {
   # Number of Dry Month ie sum(CWD > 0)
   cwd_file <- here("data_raw", "chelsa_v2_1", "temp", paste0("cwd", i, "_1km.tif"))
   ndm_file <- here("data_raw", "chelsa_v2_1", "temp", paste0("ndm", i, "_1km.tif"))
-  system(glue('gdal_calc.py -A {cwd_file} --A_band={1} --quiet --type=UInt16 \\
+  system(glue('gdal_calc.py -A {cwd_file} --A_band={1} --quiet --type=Int16 \\
               --creation-option="COMPRESS=LZW" --creation-option="PREDICTOR=2" \\
-              --outfile={ndm_file} --calc="A>0" --overwrite'))
-  ndm <-  read_stars(ndm_file)
-  names(ndm) <- paste0("ndm", i)
+              --outfile={ndm_file} --calc="A>0" --overwrite --NoDataValue={nodat}'))
 }
 ndm_files <- list.files(here("data_raw", "chelsa_v2_1", "temp"), pattern = "ndm", full.names = TRUE)
 system(glue('gdal_calc.py -A {ndm_files[1]} -B {ndm_files[2]} -C {ndm_files[3]} -D {ndm_files[4]}  -E {ndm_files[5]} \\
             -F {ndm_files[6]} -G {ndm_files[7]} -H {ndm_files[8]} -I {ndm_files[9]} -J {ndm_files[10]} -K {ndm_files[11]} \\
-            -L {ndm_files[12]} --quiet --type=UInt16 --creation-option="COMPRESS=LZW" --creation-option="PREDICTOR=2" \\
-            --outfile={here("data_raw", "chelsa_v2_1", "ndm_1km.tif")} \\
+            -L {ndm_files[12]} --quiet --type=Int16 --creation-option="COMPRESS=LZW" --creation-option="PREDICTOR=2" \\
+            --outfile={here("data_raw", "chelsa_v2_1", "ndm_1km.tif")} --NoDataValue={nodat} \\
             --calc="A+B+C+D+E+F+G+H+I+J+K+L" --overwrite'))
-ndm <- read_stars(here("data_raw", "chelsa_v2_1", "ndm_1km.tif"))
-clim <- merge(c(split(clim), ndm))
-rm("ndm")
 
-##==============================
-##
-## Output & Names
-##
-##==============================
-
-write_stars(obj = clim, overwrite = TRUE, options = c("COMPRESS=LZW", "PREDICTOR=2"), NA_value = nodat,
-            dsn = here("output", "current_chelsaNC.tif"))
-rm("clim")
+cwd_files <- list.files(here("data_raw", "chelsa_v2_1", "temp"), pattern = "cwd", full.names = TRUE)
+system(glue('gdal_merge.py -o {here("output", "current_chelsaNC.tif")} -of GTiff -ot Int16 -co "COMPRESS=LZW" \\
+            -co "PREDICTOR=2" -separate -a_nodata {nodat} {here("data_raw", "chelsa_v2_1", "clim_1km.tif")} \\
+            {cwd_files[1]} {cwd_files[2]} {cwd_files[3]} {cwd_files[4]} {cwd_files[5]} {cwd_files[6]} \\
+            {cwd_files[7]} {cwd_files[8]} {cwd_files[9]} {cwd_files[10]} {cwd_files[11]} {cwd_files[12]} \\
+            {here("data_raw", "chelsa_v2_1", "ndm_1km.tif")}'))
