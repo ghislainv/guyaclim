@@ -150,15 +150,16 @@ pet_penman_file <- here("data_raw", "chelsa_v2_1","pet_penman_1km.tif")
 for (i in 1:12)
 {
   # CWD = PET_PENMAN - Pr
+  # CWD is a positive values for a lack of water 
    system(glue('gdal_calc.py -A {pet_penman_file} --A_band={i} -B {pr_file} --B_band={i} --quiet --type=Int16 \\
                --creation-option="COMPRESS=LZW" --creation-option="PREDICTOR=2"  --calc="A-B" --NoDataValue={nodat} \\
-               --outfile={here("data_raw", "chelsa_v2_1", "temp", paste0("cwd", i, "_1km.tif"))} --overwrite'))
+               --outfile={here("data_raw", "chelsa_v2_1", paste0("cwd", i, "_1km.tif"))} --overwrite'))
 }
 
 for (i in 1:12)
 {
   # Number of Dry Month ie sum(CWD > 0)
-  cwd_file <- here("data_raw", "chelsa_v2_1", "temp", paste0("cwd", i, "_1km.tif"))
+  cwd_file <- here("data_raw", "chelsa_v2_1", paste0("cwd", i, "_1km.tif"))
   ndm_file <- here("data_raw", "chelsa_v2_1", "temp", paste0("ndm", i, "_1km.tif"))
   system(glue('gdal_calc.py -A {cwd_file} --A_band={1} --quiet --type=Int16 \\
               --creation-option="COMPRESS=LZW" --creation-option="PREDICTOR=2" \\
@@ -171,9 +172,14 @@ system(glue('gdal_calc.py -A {ndm_files[1]} -B {ndm_files[2]} -C {ndm_files[3]} 
             --outfile={here("data_raw", "chelsa_v2_1", "ndm_1km.tif")} --NoDataValue={nodat} \\
             --calc="A+B+C+D+E+F+G+H+I+J+K+L" --overwrite'))
 
-cwd_files <- list.files(here("data_raw", "chelsa_v2_1", "temp"), pattern = "cwd", full.names = TRUE)
+cwd_files <- list.files(here("data_raw", "chelsa_v2_1"), pattern = "cwd", full.names = TRUE)
+system(glue('gdal_calc.py -A {cwd_files[1]} -B {cwd_files[2]} -C {cwd_files[3]} -D {cwd_files[4]} -E {cwd_files[5]} \\
+            -F {cwd_files[6]} -G {cwd_files[7]} -H {cwd_files[8]} -I {cwd_files[9]} -J {cwd_files[10]} -K {cwd_files[11]} \\
+            -L {cwd_files[12]} --quiet --type=Int16 --creation-option="COMPRESS=LZW" --creation-option="PREDICTOR=2" \\
+            --outfile={here("data_raw", "chelsa_v2_1", "cwd_1km.tif")} --NoDataValue={nodat} \\
+            --calc="numpy.maximum(A,0)+numpy.maximum(B,0)+numpy.maximum(C,0)+numpy.maximum(D,0)+numpy.maximum(E,0)+numpy.maximum(F,0) \\
+            +numpy.maximum(G,0)+numpy.maximum(H,0)+numpy.maximum(I,0)+numpy.maximum(J,0)+numpy.maximum(K,0)+numpy.maximum(L,0)" --overwrite'))
+
 system(glue('gdal_merge.py -o {here("output", "current_chelsaNC.tif")} -of GTiff -ot Int16 -co "COMPRESS=LZW" \\
             -co "PREDICTOR=2" -separate -a_nodata {nodat} {here("data_raw", "chelsa_v2_1", "clim_1km.tif")} \\
-            {cwd_files[1]} {cwd_files[2]} {cwd_files[3]} {cwd_files[4]} {cwd_files[5]} {cwd_files[6]} \\
-            {cwd_files[7]} {cwd_files[8]} {cwd_files[9]} {cwd_files[10]} {cwd_files[11]} {cwd_files[12]} \\
-            {here("data_raw", "chelsa_v2_1", "ndm_1km.tif")}'))
+            {here("data_raw", "chelsa_v2_1", "cwd_1km.tif")} {here("data_raw", "chelsa_v2_1", "ndm_1km.tif")}'))
