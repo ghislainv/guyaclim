@@ -29,12 +29,12 @@ library(stringr)
 
 source(here("Code", "gaulNC.R"))
 ## gdalwrap options
-EPSG = 3163
-nodat = -9999
+EPSG <- 3163
+nodat <- -9999
 proj.s <- "EPSG:4326"
 proj.t <- paste("EPSG:", EPSG, sep = "")
-ISO_country_code = "NCL"
-full_name = countrycode(ISO_country_code, origin = "iso3c", destination = "country.name")
+ISO_country_code <- "NCL"
+full_name <- countrycode(ISO_country_code, origin = "iso3c", destination = "country.name")
 Extent <- readLines(here("output/extent_short.txt"))
 
 ##==============================
@@ -51,7 +51,7 @@ download.file(URL, quiet = FALSE,
               here("data_raw", "fao_gaul", paste0("gpkg_gadm36_", ISO_country_code, ".zip")))
 # Unzip 
 unzip(here("data_raw", "fao_gaul", paste0("gpkg_gadm36_", ISO_country_code, ".zip")),
-      exdir=here("data_raw", "fao_gaul"), overwrite=TRUE)
+      exdir = here("data_raw", "fao_gaul"), overwrite=TRUE)
 # Read vector (level 0 for country borders)
 border <- sf::st_read(here("data_raw", "fao_gaul", paste0("gadm36_", ISO_country_code, ".gpkg")),
                       layer=paste0("gadm36_", ISO_country_code, "_0"), quiet=FALSE)
@@ -412,7 +412,7 @@ unlink(here("data_raw", "OSM", "temp"), recursive = TRUE) # delete temporary fil
 
 for (i in list.files(here("data_raw", "OSM"), pattern = "*distance_1km.tif", full.names = TRUE))
 {
-  write_stars(st_crop(read_stars(i), border), i, NA_value = nodat)
+  write_stars(st_crop(read_stars(i), border), i)
 }
 file.remove(list.files(here("data_raw", "OSM"), pattern = "distance.tif", full.name = TRUE)) # delete temporary files
 water <- paste("lake", "reservoir", "river", sep = "|")
@@ -444,4 +444,4 @@ system(glue('gdal_merge.py -ot Int16 -of GTiff -o {here("output", "environNC.tif
 environ <- split(read_stars(here("output", "environNC.tif")))
 names(environ) <- c("forest", "aspect", "elevation", "roughness", "slope", "srad", "soilgrids", 
                     "distanceForest", "distanceSea", "distanceRoad", "distancePlace", "distancewater", "WDPA")
-write_stars(merge(environ), dsn = here("output", "environNC.tif"))
+write_stars(st_crop(merge(environ), border), dsn = here("output", "environNC.tif"))

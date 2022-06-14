@@ -83,3 +83,7 @@ system(glue("gdal_rasterize  {sourcefile} -a code -co 'COMPRESS=LZW' -co 'PREDIC
 system(glue('gdal_merge.py -o {here("output", "environ_allNC.tif")} -of GTiff -ot Int16 -co "COMPRESS=LZW" \\
             -co "PREDICTOR=2" -separate -a_nodata {nodat} {here("output", "environNC.tif")} \\
             {here("data_raw", "georep", "geol", "ContourGeo.tif")} {here("data_raw", "georep", "peridotite", "peridotite.tif")}'))
+
+write_stars(obj = st_crop(read_stars(here("output", "environ_allNC.tif")), border),
+            options = c("COMPRESS=LZW","PREDICTOR=2"), type = "Int16",
+            NA_value = nodat, dsn = here("output", "environ_allNC.tif"))

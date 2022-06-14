@@ -180,6 +180,19 @@ system(glue('gdal_calc.py -A {cwd_files[1]} -B {cwd_files[2]} -C {cwd_files[3]} 
             --calc="numpy.maximum(A,0)+numpy.maximum(B,0)+numpy.maximum(C,0)+numpy.maximum(D,0)+numpy.maximum(E,0)+numpy.maximum(F,0) \\
             +numpy.maximum(G,0)+numpy.maximum(H,0)+numpy.maximum(I,0)+numpy.maximum(J,0)+numpy.maximum(K,0)+numpy.maximum(L,0)" --overwrite'))
 
+ndm <- st_crop(read_stars(here("data_raw", "chelsa_v2_1", "ndm_1km.tif")), border)
+cwd <- st_crop(read_stars(here("data_raw", "chelsa_v2_1", "cwd_1km.tif")), border)
+write_stars(obj = ndm, options = c("COMPRESS=LZW","PREDICTOR=2"), type = "Int16",
+            NA_value = nodat, dsn = here("data_raw", "chelsa_v2_1", "ndm_1km.tif"))
+write_stars(obj = cwd, options = c("COMPRESS=LZW","PREDICTOR=2"), type = "Int16",
+            NA_value = nodat, dsn = here("data_raw", "chelsa_v2_1", "cwd_1km.tif"))
+
+
 system(glue('gdal_merge.py -o {here("output", "current_chelsaNC.tif")} -of GTiff -ot Int16 -co "COMPRESS=LZW" \\
             -co "PREDICTOR=2" -separate -a_nodata {nodat} {here("data_raw", "chelsa_v2_1", "clim_1km.tif")} \\
             {here("data_raw", "chelsa_v2_1", "cwd_1km.tif")} {here("data_raw", "chelsa_v2_1", "ndm_1km.tif")}'))
+
+
+write_stars(obj = st_crop(read_stars(here("output", "current_chelsaNC.tif")), border),
+            options = c("COMPRESS=LZW","PREDICTOR=2"), type = "Int16",
+            NA_value = nodat, dsn = here("output", "current_chelsaNC.tif"))
