@@ -17,6 +17,7 @@ library(stringr)
 library(ade4)
 library(parallel)
 library(doParallel)
+library(factoextra)
 
 EPSG <- 3163
 nodat <- -9999
@@ -28,10 +29,6 @@ Ab <- read.csv2(here("data_raw", "NCpippn", "Abondance.csv"), sep = ",")
 Ab$X <- NULL
 
 # Merge climate and environ in one tif file
-
-# system(glue('gdal_merge.py -o {here("output", "dataNC.tif")} -of GTiff -ot Int16 -co "COMPRESS=LZW" \\
-#             -co "PREDICTOR=2" -separate -a_nodata {nodat} {here("output", "environ_allNC.tif")} \\
-#             {here("output", "current_chelsaNC.tif")} '))
 
 write_stars(c(read_stars(here("output", "environ_allNC.tif")), read_stars(here("output", "current_chelsaNC.tif")), 
               along = "band"), dsn = here("output", "dataNC.tif"), 
@@ -78,20 +75,11 @@ var_jSDM <- data.matrix(data_site)
 var_jSDM[,1] <- as.numeric(var_jSDM[,1] == 1)
 write.csv(var_jSDM, here("data_raw", "NCpippn", "var_site.csv"))
 
-# Take main species for losing less time first 300 for Abundance
-
-# nb_species <- colSums(PA)
-# names(nb_species) <- NULL
-# nb_min_species <- sort(nb_species, decreasing = TRUE)[501]
-# PA <- PA[,colSums(PA) >= nb_min_species]
-# PA$X <- NULL
-
 nb_species <- colSums(Ab)
 # names(nb_species) <- NULL
 nb_min_species <- sort(nb_species, decreasing = TRUE)[301]
 Ab <- Ab[,colSums(Ab) >= nb_min_species]
 Ab$X<- NULL
-
 
 ##=================
 ##
@@ -135,7 +123,6 @@ for (i in top_species) {
   }
 }
 
-
 ## lambda_j of the first five species
 n_latent <- jSDM_pois_log$model_spec$n_latent
 par(mfrow=c(2,2))
@@ -160,7 +147,6 @@ for (l in 1:n_latent) {
   }
 }
 
-
 ## alpha_i of the first two sites
 plot(coda::as.mcmc(jSDM_pois_log$mcmc.alpha[,1:2]))
 
@@ -178,8 +164,6 @@ par (mfrow=c(2,1))
 hist(jSDM_pois_log$log_theta_latent, main = "Predicted log theta", xlab ="predicted log theta")
 hist(jSDM_pois_log$theta_latent, main = "Predicted theta", xlab ="predicted theta", breaks = 20)
 
-# do not run
-## plot_residual_cor(jSDM_pois_log, tl.cex=0.5)
 ##=================
 ##
 ## jSDM Binomial Probit
@@ -389,13 +373,7 @@ xy = spTransform(longlat, CRS("EPSG:3163"))
 alpha_sp <- terra::vect(x = data.frame(alpha = colMeans(jSDM_binom_pro$mcmc.alpha),
                                        x = xy@coords[,1], y = xy@coords[,2]), geom = c("x", "y"),
                         crs = xy@proj4string@projargs)
-# crs("EPSG:3163")@projargs
 rgrass7::write_VECT(alpha_sp, "alpha")
-
-# # Import New Caledonia shape file
-# clim <- read_stars(here("output", "jSDM_data_final.tif"))
-# NC <- rast(clim[[1]], crs = "EPSG:3163")
-# rgrass7::write_RAST(NC, "NC")
 
 # Re-sample with RST
 # for punctual data use function v.surf.rst
@@ -427,12 +405,9 @@ abline(a = 0, b = 1, col = 'red')
 W1_sp <- terra::vect(x = data.frame(W1 = colMeans(jSDM_binom_pro$mcmc.latent$lv_1),
                                     x = xy@coords[,1], y = xy@coords[,2]), geom = c("x", "y"),
                      crs = xy@proj4string@projargs)
-# crs("EPSG:3163")@projargs
 rgrass7::write_VECT(W1_sp, "W1")
 
 # Re-sample with RST
-# Note: use maskmap=Madagascar to save computation time
-# for punctual data use function v.surf.rst
 system("v.surf.rst --overwrite --verbose -t tension=3 input=W1 zcolumn=W1 \\
        smooth=0.0 elevation=W1_rst ")
 # Export
@@ -459,12 +434,9 @@ abline(a = 0, b = 1, col = 'red')
 W2_sp <- terra::vect(x = data.frame(W2 = colMeans(jSDM_binom_pro$mcmc.latent$lv_2),
                                     x = xy@coords[,1], y = xy@coords[,2]), geom = c("x", "y"),
                      crs = xy@proj4string@projargs)
-# crs("EPSG:3163")@projargs
 rgrass7::write_VECT(W2_sp, "W2")
 
 # Re-sample with RST
-# Note: use maskmap=Madagascar to save computation time
-# for punctual data use function v.surf.rst
 system("v.surf.rst --overwrite --verbose -t tension=3 input=W2 zcolumn=W2 \\
        smooth=0.0 elevation=W2_rst ")
 # Export
@@ -498,8 +470,6 @@ data_site <- read.csv2(here("output", "data_site.csv"), sep = ",")[, -1]
 
 # Species parameters 
 ### fixed species effect lambdas and betas 
-
-# params_species <- data.frame(jSDM_binom_pro$mcmc.sp)
 
 # Current climatic variables 
 X <- data.frame(intercep = rep(1, nrow = data_site), data_site)
@@ -610,8 +580,6 @@ Sys.time()
 ##====================
 
 species_to_plot <- 1644
-# params_species <- data.frame(jSDM_binom_pro$mcmc.sp[species_to_plot])
-# nsp <- nrow(params_species)
 theta <- read_stars(here("output", "theta", "RST_theta_01.tif"))
 latlong <- read.csv2(here("data_raw", "NCpippn", "coord_site.csv"), sep = ",")
 latlong$X <- NULL
@@ -699,10 +667,15 @@ fviz_eig(pca_theta)
 nb_species_effect <- 5
 pca_powerfull_species <- matrix(0, ncol = 3, nrow = nb_species_effect)
 colnames(pca_powerfull_species) <- c("Axis 1 (R)", "Axis 2 (G)", "Axis 3 (B)")
+par(mfrow = c(1,3))
 for (i in 1:3) {
   pca_powerfull_species[, i] <- names(sort(get_pca_var(pca_theta)$contrib[, i], decreasing = TRUE)[1:nb_species_effect])
-  
-}
+  plot(sort(get_pca_var(pca_theta)$contrib[, i], decreasing = FALSE)[800:1027], sub = paste0("Axe ",i), 
+       ylim = c(0, 1), ylab = "explicated variance", xlab = "", cex.sub = 2)  
+ 
+} 
+mtext("First 300 species to contribute to each axe", side = 3, outer = TRUE, line = -2)
+
 for (l in 1:3) {
   for (k in 1:nb_species_effect) {
     pca_powerfull_species[k, l] <- NC_PIPPN$nom_taxon[NC_PIPPN$id_taxon_ref == substring(pca_powerfull_species[k, l], 2)][1]
@@ -715,25 +688,15 @@ coords <- theta[[c(1, 2, 3)]]
 values(coords) <- 0
 names(coords) <- colnames(pca_theta$li)
 coords <- st_as_stars(coords)
-Sys.time() # 5 min to run
 
+Sys.time() # 5 min to run
 for(k in 1:nrow(theta)){
   theta_k <- NULL
   cat(k, "/", nrow(theta),"\n")
-  # theta <- terra::rast(here("output", "theta", "RST_theta_01.tif"))
-  ## Make a cluster for parallel computation
-  # detect the number of CPU cores on the current host
-  # ncores <- parallel::detectCores()
-  # clust <- makeCluster(ncores - 2)
-  # registerDoParallel(clust)
-  # theta_k <- foreach(n = 1:npart, .combine = "cbind", .packages = c("here", "stringr")) %dopar%{
   for (n in 1:npart) {
     theta <- terra::rast(here("output","theta", paste0("RST_theta_", str_pad(n, 2, pad = "0"), ".tif")))
     theta_k <- cbind(theta_k, terra::values(theta, row = k, nrow = 1))
   }
-  # return(theta_k)
-  # }
-  # stopCluster(clust)
   colnames(theta_k) <- params_species$species
   theta_k <- data.frame(theta_k)
   coords[[1]][,k,] <- as.matrix(ade4::suprow(pca_theta,theta_k)$lisup)
@@ -750,37 +713,25 @@ for (l in 1:3) {
   coords_RGB[[1]][,,l] <- coords[[1]][,,l]- Min
 }
 
-Min2 <- min(coords_RGB[[1]], na.rm = TRUE)
-Min2
 ## Max at 255
 remove(coords)
 
 for (l in 1:3) {
   Max <- max(coords_RGB[,,,l][[1]], na.rm = TRUE)
-  Max
   coords_RGB[[1]][,,l] <- round((coords_RGB[[1]][,,l] / Max)*255)
 }
 Max2 <- max(coords_RGB[[1]], na.rm = TRUE)
-Max2
 
 # Coloration RGB
 write_stars(coords_RGB,dsn = here("output", "species_turnover.tif"), options = c("COMPRESS=LZW", "PREDICTOR=2"))
 
 ##================
 ##
-## Current species turn over restricted to forest cover
+## Predictives species community in New Caledonia and forest cover
 ##
 ##================
 
 forest <- split(read_stars(here("output", "environNC.tif")))$forest
-# current species turnover
-# change resolution of species richness raster from 1000x1000m to 30x30m
-# in_f <- here("output", "species_turnover.tif")
-# out_f <- here("output", "species_turnover_30m.tif")
-# system(glue('gdalwarp -tr 30 30 -te {xmin(forest)} {ymin(forest)} {xmax(forest)} {ymax(forest)} -r near  \\
-#             -co "COMPRESS=LZW" -co "PREDICTOR=2" -overwrite {in_f} {out_f}'))
-
-# remove species richness values where there was no forest in 2000s
 species_turnover <- read_stars(here("output", "species_turnover.tif"))
 species_turnover_forest <- species_turnover
 forest[forest < 50] <- NA
@@ -791,12 +742,16 @@ for ( l in 1:3)
 write_stars(species_turnover_forest, dsn = here("output", "species_turnover_forest.tif"),
             options = c("COMPRESS=LZW", "PREDICTOR=2"), overwrite=TRUE)
 
-# Representation of species turn over restricted to forest cover in 2000's
-
+# entire New Caledonia
+par(mfrow = c(1,1))
 species_turnover <- terra::rast(here("output", "species_turnover.tif"))
-species_turnover_forest <- terra::rast(here("output", "species_turnover_forest.tif"))
-# par(mfrow=c(1,2), mar=c(1,1,2,1))
 plotRGB(species_turnover)
-title(main = "Current species turn over restricted to forest cover",
+title(main = "Predictives species community",
+      cex.main = 1.5, line = -2)
+# in New Caledonia forest
+species_turnover_forest <- terra::rast(here("output", "species_turnover_forest.tif"))
+plotRGB(species_turnover_forest)
+title(main = "Predictives species community in forest cover",
       cex.main = 1.5, line = -2)
 
+Sys.time()
