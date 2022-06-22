@@ -18,6 +18,7 @@ library(ade4)
 library(parallel)
 library(doParallel)
 library(factoextra)
+library(RColorBrewer)
 
 EPSG <- 3163
 nodat <- -9999
@@ -727,31 +728,48 @@ write_stars(coords_RGB,dsn = here("output", "species_turnover.tif"), options = c
 
 ##================
 ##
-## Predictives species community in New Caledonia and forest cover
+## Predictives species community in New Caledonia, forest cover and ultramafics substrate
 ##
 ##================
 
 forest <- split(read_stars(here("output", "environNC.tif")))$forest
+peridotites <- split(read_stars(here("output", "environ_allNC.tif")))$X15
 species_turnover <- read_stars(here("output", "species_turnover.tif"))
-species_turnover_forest <- species_turnover
+species_over_peridotites <- species_turnover
+species_over_forest <- species_turnover
 forest[forest < 50] <- NA
+peridotites[peridotites != 1] <- NA
 for ( l in 1:3)
 {
-  species_turnover_forest[[1]][,,l][is.na(forest)] <- NA
+  species_over_forest[[1]][,,l][is.na(forest)] <- NA
+  species_over_peridotites[[1]][,,l][is.na(peridotites)] <- NA
 }
-write_stars(species_turnover_forest, dsn = here("output", "species_turnover_forest.tif"),
+
+write_stars(species_over_forest, dsn = here("output", "species_over_forest.tif"),
+            options = c("COMPRESS=LZW", "PREDICTOR=2"), overwrite=TRUE)
+write_stars(species_over_peridotites, dsn = here("output", "species_over_peridotites.tif"),
             options = c("COMPRESS=LZW", "PREDICTOR=2"), overwrite=TRUE)
 
 # entire New Caledonia
-par(mfrow = c(1,1))
 species_turnover <- terra::rast(here("output", "species_turnover.tif"))
+par(mfrow = c(3, 1))
+plot(species_turnover[[1]], sub = "Axis 1", col = brewer.pal(n = 9, name = "Reds"))
+plot(species_turnover[[2]], sub = "Axis 2", col = brewer.pal(n = 9, name = "Greens"))
+plot(species_turnover[[3]], sub = "Axis 3", col = brewer.pal(n = 9, name = "Blues"))
+mtext("Impact of each axes on communities", side = 3, outer = TRUE, line = -2)
+par(mfrow = c(1, 1))
+
 plotRGB(species_turnover)
 title(main = "Predictives species community",
       cex.main = 1.5, line = -2)
 # in New Caledonia forest
-species_turnover_forest <- terra::rast(here("output", "species_turnover_forest.tif"))
-plotRGB(species_turnover_forest)
+species_over_forest <- terra::rast(here("output", "species_over_forest.tif"))
+plotRGB(species_over_forest)
 title(main = "Predictives species community in forest cover",
       cex.main = 1.5, line = -2)
 
-Sys.time()
+# in ultramafics subtrates
+species_over_peridotites <- terra::rast(here("output", "species_over_peridotites.tif"))
+plotRGB(species_over_peridotites)
+title(main = "Predictives species community in ultramafic subtrates",
+      cex.main = 1.5, line = -2)
