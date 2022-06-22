@@ -33,6 +33,7 @@ for (i in 1:length(aires))
 
 latlong <- data[!duplicated(data$id_locality), c("id_locality", "longitude", "latitude")]
 rownames(latlong) <- NULL
+write.csv(data, here("data_raw", "NCpippn", "data_clear.csv"))
 write.csv(latlong, here("data_raw", "NCpippn", "coord_site.csv"))
 # rm("data", "dbs")
 

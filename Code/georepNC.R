@@ -47,7 +47,7 @@ system(glue("ogr2ogr -overwrite -f 'ESRI Shapefile' \\
 sourcefile <- here("data_raw", "georep", "peridotite", "peridotite.shp")
 destfile <- here("data_raw", "georep", "peridotite", "peridotite.tif")
 system(glue("gdal_rasterize  {sourcefile} -te {Extent} -tap -burn 1 -co 'COMPRESS=LZW' -co 'PREDICTOR=2' \\
-              -ot Byte -of GTiff -a_nodata {0} -a_srs {proj.t} -tr 1000 1000 {destfile}"))
+              -ot Byte -of GTiff -a_srs {proj.t} -tr 1000 1000 {destfile}"))
 
 # Convert geology from .shp to .tif
 sourcefile <- here("data_raw", "georep", "geol", "temp", "Geologie_SHP_Lyr_50000", "SurfaceGeologique_50000_Vbeta.shp")
