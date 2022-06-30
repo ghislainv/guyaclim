@@ -15,11 +15,10 @@ library(here)
 library(gtools) # for function mixedsort to order files 
 library(sf) # for spatial sf objects 
 library(stars) # for spatial stars objects 
-library(raster)
 library(rgdal) # to use gdal  
 library(insol) # for function daylength
 library(rgrass7) # for function initGRASS
-library(dismo) # for function bioclim
+# library(dismo) # for function bioclim
 
 ## gdalwrap options
 # from output/extent.txt
@@ -27,9 +26,9 @@ Extent <- readLines(here("output/extent_short.txt"))
 Res <- "1000"
 nodat <- -9999
 proj.s <- "EPSG:4326"
-proj.t <- "EPSG:3165" 
+proj.t <- "EPSG:3163" 
 ISO_country_code <- "NCL"
-EPSG <- 3165
+EPSG <- 3163
 
 ## Border for resizing 
 
@@ -41,6 +40,7 @@ names(borderExtent) <- c("xmin", "ymin", "xmax", "ymax")
 border <- st_crop(border, st_bbox(borderExtent))
 
 ## Initialize GRASS
+files.tif <- list.files(here("data_raw", "chelsa_v2_1", "temp"), pattern = "bio", full.names = TRUE)
 setwd(here("data_raw"))
 dir.create("grassdata")
 Sys.setenv(LD_LIBRARY_PATH=paste("/usr/lib/grass80/lib", Sys.getenv("LD_LIBRARY_PATH"),sep=":"))
@@ -81,7 +81,7 @@ for (model in c("GFDL-ESM4", "IPSL-CM6A-LR", "MPI-ESM1-2-HR", "MRI-ESM2-0", "UKE
     # See https://chelsa-climate.org/wp-admin/download-page/CHELSA_tech_specification_V2.pdf for details 
     download.file(paste("https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V2/GLOBAL/climatologies/2071-2100/", model, 
                         "/ssp585/bio/CHELSA_bio", i, "_2071-2100_", tolower(model), "_ssp585_V.2.1.tif", sep = ""),
-                  destfile=here("data_raw", "chelsa_v2_1", "futur", model, "temp", paste0("bio",i,".tif")), method = 'wget')
+                  destfile = here("data_raw", "chelsa_v2_1", "futur", model, "temp", paste0("bio",i,".tif")), method = 'wget')
   }
 }
 
