@@ -18,6 +18,9 @@ library(parallel)
 library(doParallel)
 library(factoextra)
 library(RColorBrewer)
+library(terrainr)
+library(ggtern)
+library(matrixStats)
 
 set.seed(1234)
 EPSG <- 3163
@@ -28,7 +31,7 @@ PA <- read.csv2(here("data_raw", "NCpippn", "Presence_Absence.csv"), sep = ",")
 PA$X <- NULL
 Ab <- read.csv2(here("data_raw", "NCpippn", "Abondance.csv"), sep = ",")
 Ab$X <- NULL
-
+dir.create(here("output", "plot"))
 # Remove Ouvéa, Livou and Nécé islands
 border <- split(read_stars(here("output", "environNC.tif")))[1,,]
 border[[1]][1100:1706,1:400] <- NA
@@ -212,56 +215,74 @@ top_species <- which(colSums(PA) >= sort(colSums(PA), decreasing = TRUE)[5])
 np <- nrow(jSDM_binom_pro$model_spec$beta_start)
 
 ## beta_j of the top five species
-par(mfrow = c(3, 2))
-for (j in top_species) {
+
+
+for (j in top_species[1]) {
   for (p in 1:np) {
+    png(here("output", "plot", paste0("beta_jSDM_", p, ".png")))
+    par(mfrow = c(1, 2))
     coda::traceplot(coda::as.mcmc(jSDM_binom_pro$mcmc.sp[[j]][, p]))
-    coda::densplot(coda::as.mcmc(jSDM_binom_pro$mcmc.sp[[j]][, p]), 
-                   main = paste(colnames(jSDM_binom_pro$mcmc.sp[[j]])[p],
-                                ", species : ", names(top_species[top_species == j])))
+    coda::densplot(coda::as.mcmc(jSDM_binom_pro$mcmc.sp[[j]][, p]))
+    mtext(paste(colnames(jSDM_binom_pro$mcmc.sp[[j]])[p], ", species : ", names(top_species[top_species == j])),
+          side = 3, line = - 2, outer = TRUE)
+    dev.off()
   }
 }
 
+
 ## lambda_j of the top five species
 n_latent <- jSDM_binom_pro$model_spec$n_latent
-par(mfrow = c(2, 2))
-for (j in top_species) {
+
+for (j in top_species[1]) {
+  png(here("output", "plot", "lambda_jSDM.png"))
+  par(mfrow = c(2, 2))
   for (l in 1:n_latent) {
     coda::traceplot(coda::as.mcmc(jSDM_binom_pro$mcmc.sp[[j]][, np + l]))
     coda::densplot(coda::as.mcmc(jSDM_binom_pro$mcmc.sp[[j]][, np + l]), 
                    main = paste(colnames(jSDM_binom_pro$mcmc.sp[[j]])
                                 [np + l],", species : ", names(top_species[top_species == j])))
+   
   }
+  dev.off()
 }
 
 ## Latent variables W_i for the first two sites
-par(mfrow = c(2, 2))
+
 for (l in 1:n_latent) {
+  png(here("output", "plot", paste0("W_", l, "_jSDM.png")))
+  par(mfrow = c(2, 2))
   for (i in 1:2) {
     coda::traceplot(jSDM_binom_pro$mcmc.latent[[paste0("lv_", l)]][, i],
                     main = paste0("Latent variable W_", l, ", site ", i))
     coda::densplot(jSDM_binom_pro$mcmc.latent[[paste0("lv_", l)]][, i],
                    main = paste0("Latent variable W_", l, ", site ", i))
   }
+  dev.off()
 }
 
 ## alpha_i of the first two sites
+png(here("output", "plot", "alpha_jSDM.png"))
 plot(coda::as.mcmc(jSDM_binom_pro$mcmc.alpha[, 1:2]))
+dev.off()
 
 ## V_alpha
+png(here("output", "plot", "V_alpha_Deviance_jSDM.png"))
 par(mfrow = c(2, 2))
 coda::traceplot(jSDM_binom_pro$mcmc.V_alpha)
 coda::densplot(jSDM_binom_pro$mcmc.V_alpha)
 ## Deviance
 coda::traceplot(jSDM_binom_pro$mcmc.Deviance)
 coda::densplot(jSDM_binom_pro$mcmc.Deviance)
+dev.off()
 
 ## probit_theta
+png(here("output", "plot", "theta_jSDM.png"))
 par (mfrow = c(2, 1))
 hist(jSDM_binom_pro$probit_theta_latent,
      main = "Predicted probit theta", xlab = "predicted probit theta")
 hist(jSDM_binom_pro$theta_latent,
      main = "Predicted theta", xlab = "predicted theta")
+dev.off()
 
 ##===================
 ##
@@ -287,11 +308,12 @@ ggplot(data = NC) +
   geom_sf() +
   geom_point(data = coord[,c("longitude", "latitude", species_to_plot)], 
              aes(x = longitude, y = latitude, shape = as.logical(coord[,species_to_plot])), size = 1) +
-  ggtitle(paste0('Observed occurences of ', name_species)) +
+  ggtitle(paste0('Observed occurences of \n', name_species)) +
   scale_shape_manual(labels = c("Absence", "Presence"), values = c(1, 3), name = "Species state") +
   coord_sf(xlim = c(163, 169 ), ylim = c(-22.84805679, -19.5), expand = FALSE) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
+ggsave(here("output", "plot", "Observed_occurences.png"))
 
 # Reel extent in lat/long
 # xlim = c(155.86889648, 172.09008789 ), ylim = c(-22.84805679, -17.39916611)
@@ -303,12 +325,12 @@ ggplot(data = NC) +
   geom_sf() +
   geom_point(data = data_theta, 
              aes(x = longitude, y = latitude, colour = theta), size = 1) +
-  ggtitle(paste0("Estimated probabilities of presence for ", name_species)) +
+  ggtitle(paste0("Estimated probabilities of presence for \n", name_species)) +
   scale_colour_gradientn(colours = rev(rocket(10)), name = "Prediction", limits = c(0, 1)) +
   coord_sf(xlim = c(163, 169 ), ylim = c(-22.84805679, -19.5), expand = FALSE) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
-
+ggsave(here("output", "plot", "estimated_probabilities.png"))
 
 ##===============
 ##
@@ -331,9 +353,10 @@ ggplot(data = NC) +
   ggtitle("Observed species richness") +
   scale_colour_gradientn(colours = rev(rocket(10)), name = "Number of species", 
                          limits = c(min(species_richness$richness), max(species_richness$richness))) +
-  coord_sf(xlim = c(163, 169 ), ylim = c(-22.84805679, -20), expand = FALSE) +
+  coord_sf(xlim = c(163, 169 ), ylim = c(-22.84805679, -19.5), expand = FALSE) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
+ggsave(here("output", "plot", "species_richness_observed.png"))
 
 # Estimated richness
 
@@ -344,16 +367,18 @@ ggplot(data = NC) +
   ggtitle("Estimated species richness") +
   scale_colour_gradientn(colours = rev(rocket(10)), name = "Number of species", 
                         limits = c(min(species_richness$estimate), max(species_richness$estimate))) +
-  coord_sf(xlim = c(163, 169 ), ylim = c(-22.84805679, -20), expand = FALSE) +
+  coord_sf(xlim = c(163, 169 ), ylim = c(-22.84805679, -19.5), expand = FALSE) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
+ggsave(here("output", "plot", "species_richness_estimated.png"))
 
-
+png(here("output", "plot", "species_richness_observed_vs_estimated.png"))
 par(mfrow = c(1,1))
-plot(rowSums(PA), rowSums(jSDM_binom_pro$theta_latent), main = "Species richness for area with less than 50 differents species",
+plot(rowSums(PA), rowSums(jSDM_binom_pro$theta_latent), main = "Species richness for area \n with less than 50 differents species",
      xlab = "observed", ylab = "estimated", 
      cex.main = 1.4, cex.lab = 1.3, xlim = c(0, 50), ylim = c(0, 50))
 abline(a = 0, b = 1, col = 'red')
+dev.off()
 
 ##====================
 ##
@@ -411,9 +436,11 @@ for (i in 1:dim(coord)[1])
   alpha_xy[i] <- as.numeric(system(glue('gdallocationinfo -l_srs {proj.t} -valonly {here("output", "alphas.tif")} \\
                                              -wgs84 {coord[i,"longitude"]} {coord[i,"latitude"]}'), intern = TRUE))
 }
+png(here("output", "plot", "alpha_estimated_vs_interpolated_by_RST"))
 plot(alpha_xy, colMeans(jSDM_binom_pro$mcmc.alpha), xlab = "alpha interpolated by RST", ylab = "alpha estimated by JSDM",
      main = "Random site effect")
 abline(a = 0, b = 1, col = 'red')
+dev.off()
 
 #====
 # W1 
@@ -426,7 +453,7 @@ rgrass7::write_VECT(W1_sp, "W1")
 
 # Re-sample with RST
 system("v.surf.rst --overwrite --verbose -t tension=3 input=W1 zcolumn=W1 \\
-       smooth=0.0 elevation=W1_rst ")
+       smooth=0 elevation=W1_rst ")
 # Export
 system(glue('r.out.gdal --overwrite input=W1_rst \\
              output={here("output", "lv_W1.tif")} type=Float32 \\
@@ -440,9 +467,11 @@ for (i in 1:dim(coord)[1])
   W1_xy[i] <- as.numeric(system(glue('gdallocationinfo -l_srs {proj.t} -valonly {here("output", "lv_W1.tif")} \\
                                              -wgs84 {coord[i,"longitude"]} {coord[i,"latitude"]}'), intern = TRUE))
 }
+png(here("output", "plot", "W1_estimated_vs_interpolated_by_RST"))
 plot(W1_xy, colMeans(jSDM_binom_pro$mcmc.latent$lv_1), xlab = "W1 interpolated by RST", ylab = "W1 estimated by JSDM", 
      main = "First latent axe")
 abline(a = 0, b = 1, col = 'red')
+dev.off()
 
 #====
 # W2 
@@ -469,9 +498,11 @@ for (i in 1:dim(coord)[1])
   W2_xy[i] <- as.numeric(system(glue('gdallocationinfo -l_srs {proj.t} -valonly {here("output", "lv_W2.tif")} \\
                                              -wgs84 {coord[i,"longitude"]} {coord[i,"latitude"]}'), intern = TRUE))
 }
+png(here("output", "plot", "W2_estimated_vs_interpolated_by_RST"))
 plot(W2_xy, colMeans(jSDM_binom_pro$mcmc.latent$lv_2), xlab = "W2 interpolated by RST", ylab = "W2 estimated by JSDM", 
      main = "Second latent axe")
 abline(a = 0, b = 1, col = 'red')
+dev.off()
 
 ##====================
 ##
@@ -617,13 +648,15 @@ obs_pres <- st_as_sf(obs_pres, coords = c("long", "lat"), crs = 3163)
 
 # Plotting for one specie
 ggplot() + 
-  geom_stars(data = theta[,,,1]) +
+  geom_stars(data = theta[,800:1300,200:570,1]) +
   ggtitle(paste('Interpolated current probabilities of presence \n for', name_species)) +
   # geom_sf(data = obs_pres, shape = 3, color = "white", size = 2) 
   scale_fill_gradientn(colours = rev(rocket(5)), na.value = "transparent") +
   coord_fixed() +
   theme_bw() +
+  labs(fill = "Number of species") +
   theme(plot.title = element_text(hjust = 0.5))
+ggsave(here("output", "plot", "interpolated_presence_for_acropogon_NC.png"))
 
 ##=============
 ##
@@ -637,28 +670,33 @@ for (i in list_theta[2:npart])
 {
  theta_sum <- theta_sum + sum(terra::rast(i))
 }
-terra::writeRaster(theta_sum, here("output", "theta_sum.tif"), overwrite = TRUE)
+write_stars(theta_sum, here("output", "theta_sum.tif"), overwrite = TRUE)
 theta_sum <- read_stars(here("output", "theta_sum.tif"))
 
 ggplot() + 
-  geom_stars(data = theta_sum) +
+  geom_stars(data = theta_sum[,800:1300,200:570]) +
   ggtitle("Estimated current species richness") +
   scale_fill_gradientn(colours = rev(rocket(5)), na.value = "transparent") +
   coord_fixed() +
   theme_bw() +
+  labs(fill = "Number of species") + 
   theme(plot.title = element_text(hjust = 0.5))
-  
+ggsave(here("output", "plot", "estimated_species_richness_NC.png"))  
+
 # forest <- read_stars(here("output", "forest_binary.tif"))
 theta_forest <- theta_sum
 theta_forest <- st_crop(theta_forest, forest)
+write_stars(theta_forest, here("output", "theta_sum_forest.tif"))
 
 ggplot() + 
-  geom_stars(data = theta_forest) +
+  geom_stars(data = theta_forest[,800:1300,200:570]) +
   ggtitle("Estimated current species richness on forest area") +
   coord_fixed() +
   scale_fill_gradientn(colours = rev(rocket(5)), na.value = "transparent") +
   theme_bw() + 
+  labs(fill = "Number of species") +
   theme(plot.title = element_text(hjust = 0.5))
+ggsave(here("output", "plot", "estimated_richness_species_forest.png"))
 
 ##===============
 ##
@@ -667,133 +705,211 @@ ggplot() +
 ## PCA
 ##===============
 
-# Sample 10000 cells of presence probabilities raster
-npart <- 30
-# PCA only on forest area
-# forest <- terra::rast(here("output", "forest_binary.tif"))
+
+
+## TEST PCA
+Sys.time()
+# get all cells for PCA
+theta_stars <- read_stars(here("output", "theta", "RST_theta_forest_01.tif"))[[1]]
 theta <- terra::rast(here("output", "theta", "RST_theta_forest_01.tif"))
-# theta <- crop(theta, forest)
-samp_theta <- spatSample(theta, size = 10000, cells = TRUE, na.rm = TRUE, method = "random")
-samp_cells <- samp_theta[, "cell"]
-samp_theta <- samp_theta[, -1]
-for(n in 2:npart){
-  theta <- terra::rast(here("output", "theta", paste0("RST_theta_forest_",str_pad(n, 2, pad = "0") , ".tif")))
-  samp_theta <- cbind(samp_theta, theta[samp_cells])
-}
-params_species <- read.csv(file = here("output", "params_species.csv"))
-colnames(samp_theta) <- params_species$species
+nb_cell <- dim(values(theta, na.rm = TRUE))
+theta_matrix <- matrix(0, nrow = nb_cell[1], ncol = nb_cell[2])
+cell <- matrix(0, ncol = 2, nrow = dim(theta_matrix)[1])
 
-# Data frame to compute PCA on pixels dissimilarity 
-theta_df <- data.frame(samp_theta)
-pca_theta <- ade4::dudi.pca(theta_df, center = TRUE, scale = TRUE, nf = 3, scannf = FALSE)
-save(pca_theta, samp_cells, file = here("output", "PCA_theta.RData"))
-# str(pca_theta)
-fviz_eig(pca_theta)
-
-# Find species with more effective in PCA
-nb_species_effect <- 5
-pca_powerfull_species <- matrix(0, ncol = 3, nrow = nb_species_effect)
-colnames(pca_powerfull_species) <- c("Axis 1 (R)", "Axis 2 (G)", "Axis 3 (B)")
-par(mfrow = c(1,3))
-for (i in 1:3) {
-  pca_powerfull_species[, i] <- names(sort(get_pca_var(pca_theta)$contrib[, i], decreasing = TRUE)[1:nb_species_effect])
-  plot(sort(get_pca_var(pca_theta)$contrib[, i], decreasing = FALSE)[800:1027], sub = paste0("Axe ",i), 
-       ylim = c(0, 1), ylab = "explicated variance", xlab = "", cex.sub = 2)  
- 
-} 
-mtext("First 300 species to contribute to each axe", side = 3, outer = TRUE, line = -2)
-
-for (l in 1:3) {
-  for (k in 1:nb_species_effect) {
-    pca_powerfull_species[k, l] <- NC_PIPPN$nom_taxon[NC_PIPPN$id_taxon_ref == substring(pca_powerfull_species[k, l], 2)][1]
+increment <- 1
+for (x in 1:dim(theta_stars)[1])
+{
+  for (y in 1:dim(theta_stars)[2]) 
+  {
+    if ( sum(is.na(theta_stars[x,y,])) == 0)
+    {
+      cell[increment,] <- c(x, y)
+      theta_matrix[increment,] <- theta_stars[x,y,]
+      increment <- increment + 1
+    }
   }
 }
 
-# Perform projections of PCA results on all raster's rows in parallel
-# Coordinates on the 3 axes retained in the PCA
-coords <- theta[[c(1, 2, 3)]]
-values(coords) <- 0
-names(coords) <- colnames(pca_theta$li)
-coords <- st_as_stars(coords)
-
-Sys.time() # 5 min to run
-for(k in 1:nrow(theta)){
-  theta_k <- NULL
-  cat(k, "/", nrow(theta),"\n")
-  for (n in 1:npart) {
-    theta <- terra::rast(here("output","theta", paste0("RST_theta_forest_", str_pad(n, 2, pad = "0"), ".tif")))
-    theta_k <- cbind(theta_k, terra::values(theta, row = k, nrow = 1))
+# get position of each cell
+npart <- 30
+for (file in 2:npart) {
+  increment <- 1
+  theta_stars <- read_stars(here("output", "theta", paste0("RST_theta_forest_",str_pad(file, 2, pad = "0") , ".tif")))[[1]]
+  theta_matrix_k <- matrix(0, nrow = nb_cell[1], ncol = dim(theta_stars)[3])
+  for (x in 1:dim(theta_stars)[1])
+  {
+    for (y in 1:dim(theta_stars)[2]) 
+    {
+      if ( sum(is.na(theta_stars[x,y,])) == 0)
+      {
+        theta_matrix_k[increment,] <- theta_stars[x,y,]
+        increment <- increment + 1
+      }
+    }
   }
-  colnames(theta_k) <- params_species$species
-  theta_k <- data.frame(theta_k)
-  coords[[1]][,k,] <- as.matrix(ade4::suprow(pca_theta,theta_k)$lisup)
+  theta_matrix <- cbind(theta_matrix, theta_matrix_k)
 }
 Sys.time()
-write_stars(coords, dsn = here("output", "coords.tif"), options = c("COMPRESS=LZW", "PREDICTOR=2"))
+
+# name cols
+params_species <- read.csv(file = here("output", "params_species.csv"))
+colnames(theta_matrix) <- params_species$species 
+rm(theta_matrix_k)
+##
+
+# Data frame to compute PCA on pixels dissimilarity 
+theta_df <- data.frame(theta_matrix)
+# keep axis while explained variance is more than 1% (6 in this case)
+pca_theta <- ade4::dudi.pca(theta_df, center = TRUE, scale = TRUE, nf = 6, scannf = FALSE)
+save(pca_theta, samp_cells, file = here("output", "PCA_theta.RData"))
+png(here("output", "plot", "PCA_explained_variances.png"))
+fviz_eig(pca_theta)
+dev.off()
+print(paste0("Explained variances by first six axis : ", round(sum(fviz_eig(pca_theta)$data[1:6,2])), "%"))
+
+# CAH on site to classify pixels
+
+dist_site <- dist(get_pca_ind(pca_theta)$coord, method = "euclidian")
+png(here("output", "plot", "dendo_ACP.png"))
+plot(hclust(dist_site), labels = FALSE) 
+dev.off()
+# 5 or 7 groups
+nb_class <- 7
+PCA_site_group <- cutree(hclust(dist_site), k = nb_class)
+table(PCA_site_group)
+rm(dist_site)
+
+# EM  better than CAH fo grouping pixels
+nb_class <- 5
+init_EM <- rand.EM(get_pca_ind(pca_theta)$coord, nclass = nb_class, min.n = 10)
+EM_class <- assign.class(get_pca_ind(pca_theta)$coord, emcluster(get_pca_ind(pca_theta)$coord, init_EM))
+EM_group <- EM_class$class
+print(table(EM_group))
 
 # Change the coordinate scale for [0.255]. 
-## Min reduced to 0
-
-coords_RGB <- coords
+# init stars object with CRS, extent, NA,...
+rastRGB <- read_stars(here("output", "theta", "RST_theta_forest_01.tif"))[,,,1:3]
+PCA_site_coord <- get_pca_ind(pca_theta)$coord[,1:3]
+RGB_value <- PCA_site_coord
 for (l in 1:3) {
-  Min <- min(read_stars(here("output", "coords.tif"))[,,,l][[1]], na.rm = TRUE)
-  coords_RGB[[1]][,,l] <- coords[[1]][,,l]- Min
+  RGB_value[, l] <- PCA_site_coord[, l] - min(PCA_site_coord[, l])
+  RGB_value[, l] <- RGB_value[, l] / max(RGB_value[, l]) * 255
 }
 
-## Max at 255
-remove(coords)
+# mean color of each group are too similar
+# take rocket palette instead
+color_group <- matrix(-1, nrow = nb_class, ncol = 3)
+color_group_hex <- rocket(nb_class + 2)
+color_group <- t(col2rgb(color_group_hex))
+# color_group_hex <- rep(0, nb_class)
+# for (group in 1:nb_class) {
+#   color_group[group, 1] <- round(mean(RGB_value[ EM_group == group, 1], na.rm = TRUE))
+#   color_group[group, 2] <- round(mean(RGB_value[ EM_group == group, 2], na.rm = TRUE))
+#   color_group[group, 3] <- round(mean(RGB_value[ EM_group == group, 3], na.rm = TRUE))
+#   color_group_hex[group] <- paste(color_group[group,], collapse = " ")
+# }
+# color_group_hex <- rgb2hex(r = color_group[,1], g = color_group[,2], b = color_group[,3])
 
-for (l in 1:3) {
-  Max <- max(coords_RGB[,,,l][[1]], na.rm = TRUE)
-  coords_RGB[[1]][,,l] <- round((coords_RGB[[1]][,,l] / Max)*255)
+
+RGB_group <- RGB_value
+for (j in 1:dim(RGB_group)[1]) {
+  RGB_group[j,] <- color_group[EM_group[j],]
 }
-Max2 <- max(coords_RGB[[1]], na.rm = TRUE)
+
+# put RGB color in raster and one col by group 
+rastRGB_group <- rastRGB
+for (i in 1:dim(get_pca_ind(pca_theta)$coord[,1:3])[1]){
+  rastRGB[[1]][cell[i, 1], cell[i, 2],] <- unlist(RGB_value[i,])
+  rastRGB_group[[1]][cell[i, 1], cell[i, 2],] <- unlist(RGB_group[i,])
+}
 
 # Coloration RGB
-write_stars(coords_RGB,dsn = here("output", "species_turnover.tif"), options = c("COMPRESS=LZW", "PREDICTOR=2"))
+write_stars(rastRGB[,800:1300,200:570], dsn = here("output", "RGB_forest.tif"), 
+            options = c("COMPRESS=LZW", "PREDICTOR=2"))
+write_stars(rastRGB_group[,800:1300,200:570], dsn = here("output", "RGB_group_forest.tif"),
+            options = c("COMPRESS=LZW", "PREDICTOR=2"))
 
 ##================
 ##
-## Predictives species community in New Caledonia, forest cover and ultramafics substrate
+## Predictives species community in New Caledonia forest
 ##
 ##================
-
-
-peridotites <- split(read_stars(here("output", "environ_allNC.tif")))$X15
-species_turnover <- read_stars(here("output", "species_turnover.tif"))
-species_over_peridotites <- species_turnover
-species_over_forest <- st_crop(species_turnover, forest)
-
-peridotites[peridotites != 1] <- NA
-for ( l in 1:3)
-{
-  species_over_peridotites[[1]][,,l][is.na(peridotites)] <- NA
-}
-
-write_stars(species_over_forest, dsn = here("output", "species_over_forest.tif"),
-            options = c("COMPRESS=LZW", "PREDICTOR=2"), overwrite=TRUE)
-write_stars(species_over_peridotites, dsn = here("output", "species_over_peridotites.tif"),
-            options = c("COMPRESS=LZW", "PREDICTOR=2"), overwrite=TRUE)
 
 # prediction on forest area
-species_turnover <- terra::rast(here("output", "species_turnover.tif"))
+RGB_forest <- terra::rast(here("output", "RGB_forest.tif"))
+RGB_forest_group <- terra::rast(here("output", "RGB_group_forest.tif"))
+png(here("output", "plot", "R_B_G_forest.png"))
 par(mfrow = c(3, 1))
-plot(species_turnover[[1]], sub = "Axis 1", col = brewer.pal(n = 9, name = "Reds"))
-plot(species_turnover[[2]], sub = "Axis 2", col = brewer.pal(n = 9, name = "Greens"))
-plot(species_turnover[[3]], sub = "Axis 3", col = brewer.pal(n = 9, name = "Blues"))
+plot(RGB_forest[[1]], sub = "Axis 1", col = brewer.pal(n = 9, name = "Reds"))
+plot(RGB_forest[[2]], sub = "Axis 2", col = brewer.pal(n = 9, name = "Greens"))
+plot(RGB_forest[[3]], sub = "Axis 3", col = brewer.pal(n = 9, name = "Blues"))
 mtext("Impact of each axes on communities", side = 3, outer = TRUE, line = -2)
-par(mfrow = c(1, 1))
+dev.off()
 
-plotRGB(species_turnover, stretch = "hist")
+png(here("output", "plot", "RGB_forest.png"))
+par(mfrow = c(1, 1))
+plotRGB(RGB_forest, stretch = "hist")
 title(main = "Predictives species community on forest area",
       cex.main = 1.5, line = -2)
+dev.off()
 
-# # in ultramafics subtrates
-# species_over_peridotites <- terra::rast(here("output", "species_over_peridotites.tif"))
-# plotRGB(species_over_peridotites)
-# title(main = "Predictives species community in ultramafic subtrates",
-#       cex.main = 1.5, line = -2)
+png(here("output", "plot", "RGB_group_forest.png"))
+par(mfrow = c(1, 1))
+plotRGB(RGB_forest_group, stretch = "hist")
+title(main = "Group of similar pixel ",
+      cex.main = 1.5, line = -2)
+legend("bottomleft", inset = .1, title = "Mean color of each group",
+       c("Group 1", "Group 2", "Group 3", "Group 4", "Group 5", "Group 6", "Group 7"),
+       fill = color_group_hex, horiz = FALSE, cex = 0.8)
+dev.off()
 
+ggplot() +
+  geom_tile() +
+  geom_spatial_rgb(data = RGB_forest_group, 
+                   aes(x = x, y = y, r = red, g = green, b = blue, asp = 1)) +
+  coord_fixed() +
+  geom_label(aes(x = 200000, y = 260000, label = "Group 1", size = 5, colour = "white"), fill = color_group_hex[1]) +
+  geom_label(aes(x = 200000, y = 245000, label = "Group 2", size = 5, colour = "white"), fill = color_group_hex[2]) +
+  geom_label(aes(x = 200000, y = 230000, label = "Group 3", size = 5, colour = "white"), fill = color_group_hex[3]) +
+  geom_label(aes(x = 200000, y = 215000, label = "Group 4", size = 5), fill = color_group_hex[4]) +
+  geom_label(aes(x = 200000, y = 200000, label = "Group 5", size = 5), fill = color_group_hex[5]) +
+  # geom_label(aes(x = 200000, y = 215000, label = "Group 6", size = 5), fill = color_group_hex[6]) +
+  # geom_label(aes(x = 200000, y = 200000, label = "Group 7", size = 5), fill = color_group_hex[7]) +
+  theme_bw() +
+  theme(legend.position = "none")
+ggsave(here("output", "plot", "RGB_forest_group.png"))
+
+# 20 species more likely on site of each group
+
+max_species_group <- matrix(0, nrow = nb_class * 3, ncol = 20) 
+min_species_group <- matrix(0, nrow = nb_class * 3, ncol = 20) 
+data_clear <- read.csv2(here("data_raw", "NCpippn", "data_clear.csv"), sep =",")
+names(theta_matrix) <- params_species$species
+names(species_group) <- params_species$species 
+colmax <- rep(0, 20)
+colmin <- rep(0, 20)
+for (h in 1:nb_class)
+{
+  max_species_group[3 * h - 2, ] <- names(sort(colMeans(theta_matrix[EM_group == h,]), decreasing = TRUE)[1:20])
+  min_species_group[3 * h - 2, ] <- names(sort(colMeans(theta_matrix[EM_group == h,]), decreasing = FALSE)[1:20])
+  for (hh in 1:dim(max_species_group)[2]) 
+  {
+    colmax[hh] <- which(names(theta_matrix) == max_species_group[3 * h - 2, hh])
+    colmin[hh] <- which(names(theta_matrix) == min_species_group[3 * h - 2, hh])
+    max_species_group[3 * h - 2, hh] <- data_clear$nom_taxon[data_clear$id_taxon_ref == substring(max_species_group[3 * h - 2, hh], 2)][1]
+    min_species_group[3 * h - 2, hh] <- data_clear$nom_taxon[data_clear$id_taxon_ref == substring(min_species_group[3 * h - 2, hh], 2)][1]
+  }
+  max_species_group[3 * h - 1, ] <- colSds(theta_matrix[EM_group == h,], cols = colmax)
+  min_species_group[3 * h - 1, ] <- colSds(theta_matrix[EM_group == h,], cols = colmin)
+  max_species_group[3 * h, ] <- colMeans(theta_matrix[EM_group == h,])[colmax]
+  min_species_group[3 * h, ] <- colMeans(theta_matrix[EM_group == h,])[colmin]
+  writeLines(max_species_group[3 * h - 2,], here("output", "classification", paste0("Group_", h, "_species_max.txt")))
+  writeLines(min_species_group[3 * h - 2,], here("output", "classification", paste0("Group_", h, "_species_min.txt")))
+}
+rownames(max_species_group) <- c(matrix(c(paste("Group", 1:nb_class), paste("Sd", 1:nb_class),
+                                          paste("Mean", 1:nb_class)), ncol = nb_class, byrow = TRUE))
+rownames(min_species_group) <- c(matrix(c(paste("Group", 1:nb_class), paste("Sd", 1:nb_class), 
+                                          paste("Mean", 1:nb_class)), ncol = nb_class, byrow = TRUE))
 ##==============
 ##
 ## Plot random effect alpha with
@@ -842,6 +958,7 @@ Sensitivity <- function(PA, theta){
   score <- rep(0, n_sites)
   for(i in 1:n_sites){
     # Sensitivity 
+    # True positive
     obs_sp <- which(PA[i,] > 0)
     nobs_sp <- length(obs_sp)
     pred_sp <- which(theta[i,] >= sort(theta[i,], decreasing = TRUE)[nobs_sp])
@@ -853,7 +970,8 @@ Specificity  <- function(PA, theta){
   n_sites <- nrow(PA)
   score <- rep(0, n_sites)
   for(i in 1:n_sites){
-    # Specificity 
+    # Specificity
+    # True negative
     abs_sp <- which(PA[i,] == 0)
     nabs_sp <- length(abs_sp)
     pred_abs_sp <- which(theta[i,] <= sort(theta[i,])[nabs_sp])
@@ -889,3 +1007,16 @@ ggplot(data = NC) +
   coord_sf(xlim = c(163, 169 ), ylim = c(-22.84805679, -19.5), expand = FALSE) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+
+############# TEST site in forest ? 
+## 63% in forest
+a <- rep(0,dim(coord)[1])
+for (i in 1:dim(coord)[1]) 
+{
+  a[i] <- as.numeric(system(glue('gdallocationinfo -l_srs {proj.t} -valonly {here("data_raw", "tmf_ec_jrc", "TMF_20_160_1km%.tif")} \\
+                                             -wgs84 {coord[i,1]} {coord[i,2]}'), intern = TRUE))[1]
+}

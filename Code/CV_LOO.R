@@ -9,6 +9,7 @@ library("rnaturalearth") # plotting maps
 library("rnaturalearthdata")
 library("rnaturalearthhires")
 library(rgrass7)
+library(jSDM)
 library(RColorBrewer)
 
 dir.create(here("output", "CV"))
@@ -259,4 +260,73 @@ for (i in 1:nb_class) {
   sens[i] = sum(Sensitivity_CV(PA, result)) / nrow(result)
   spe[i] = sum(Specificity_CV(PA, result)) / nrow(result)
   TSS[i] = sens[i] + spe[i] - 1
+  Sys.time()
+}
+Sys.time()
+
+##===================
+##
+## Analisys of each jSDM model 
+##
+##===================
+
+for (i in 1:nb_class){
+  readline()
+  load(here("output", "CV", paste0("jSDM_binom_pro_group_", i, ".RData")))
+  
+  top_species <- which(colSums(PA) >= sort(colSums(PA), decreasing = TRUE)[5])
+  np <- nrow(jSDM_binom_pro$model_spec$beta_start)
+  
+  # ## beta_j of the top five species
+  # par(mfrow = c(3, 2))
+  # for (j in top_species) {
+  #   for (p in 1:np) {
+  #     coda::traceplot(coda::as.mcmc(jSDM_binom_pro$mcmc.sp[[j]][, p]))
+  #     coda::densplot(coda::as.mcmc(jSDM_binom_pro$mcmc.sp[[j]][, p]), 
+  #                    main = paste(colnames(jSDM_binom_pro$mcmc.sp[[j]])[p],
+  #                                 ", species : ", names(top_species[top_species == j])))
+  #   }
+  # }
+  
+  ## lambda_j of the top five species
+  n_latent <- jSDM_binom_pro$model_spec$n_latent
+  par(mfrow = c(2, 2))
+  for (j in top_species) {
+    for (l in 1:n_latent) {
+      coda::traceplot(coda::as.mcmc(jSDM_binom_pro$mcmc.sp[[j]][, np + l]))
+      coda::densplot(coda::as.mcmc(jSDM_binom_pro$mcmc.sp[[j]][, np + l]), 
+                     main = paste(colnames(jSDM_binom_pro$mcmc.sp[[j]])
+                                  [np + l],", species : ", names(top_species[top_species == j])))
+    }
+  }
+  
+  ## Latent variables W_i for the first two sites
+  par(mfrow = c(2, 2))
+  for (l in 1:n_latent) {
+    for (i in 1:2) {
+      coda::traceplot(jSDM_binom_pro$mcmc.latent[[paste0("lv_", l)]][, i],
+                      main = paste0("Latent variable W_", l, ", site ", i))
+      coda::densplot(jSDM_binom_pro$mcmc.latent[[paste0("lv_", l)]][, i],
+                     main = paste0("Latent variable W_", l, ", site ", i))
+    }
+  }
+  
+  ## alpha_i of the first two sites
+  plot(coda::as.mcmc(jSDM_binom_pro$mcmc.alpha[, 1:2]))
+  
+  ## V_alpha
+  par(mfrow = c(2, 2))
+  coda::traceplot(jSDM_binom_pro$mcmc.V_alpha)
+  coda::densplot(jSDM_binom_pro$mcmc.V_alpha)
+  ## Deviance
+  coda::traceplot(jSDM_binom_pro$mcmc.Deviance)
+  coda::densplot(jSDM_binom_pro$mcmc.Deviance)
+  
+  ## probit_theta
+  par (mfrow = c(2, 1))
+  hist(jSDM_binom_pro$probit_theta_latent,
+       main = "Predicted probit theta", xlab = "predicted probit theta")
+  hist(jSDM_binom_pro$theta_latent,
+       main = "Predicted theta", xlab = "predicted theta")
+  
 }

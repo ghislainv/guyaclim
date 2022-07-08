@@ -1,9 +1,12 @@
 library(stats)
 library(here)
 library(stars)
+library(terra)
 library(stringr)
 library(EMCluster)
 library(factoextra)
+library(terrainr)
+library(grid)
 
 set.seed(1234)
 load(here("output", "PCA_theta.RData"))
@@ -226,9 +229,16 @@ sum(nb_species_by_group)
 #   }
 # }
 
-## color of each group 
+##===================
+##
+## Color of each group 
+##
+##===================
+
 npart <- 30
-nb_pixel_color <- 20
+nb_pixel_color <- 600
+col_group <- matrix(0, nrow = nb_class, ncol = 3)
+hex_color <- rep(0, nb_class)
 for (i in 1:nb_class) {
   group_i <- readLines(here("output", "classification", paste0("final_group_", i, ".txt")))
   for (j in 1:length(group_i)){
@@ -241,13 +251,48 @@ for (i in 1:nb_class) {
     common <- intersect(names(theta_group), group_i)
     if (length(common) != 0)
     {
+      # stack probabilities of each species of each group
       sum_theta_group <- sum_theta_group + sum(theta_group[[common]])
     }
   }
   terra::writeRaster(sum_theta_group, here("output", "classification", paste0("theta_group_", i, ".tif")), overwrite = TRUE)
   sum_theta_group <- st_as_stars(sum_theta_group)
-  value_min <- sort(sum_theta_group[[1]], decreasing = TRUE)[nb_pixel_color]
-  sum_theta_group[[1]][sum_theta_group[[1]] > value_min] <- NA
+  # value_min <- sort(sum_theta_group[[1]], decreasing = TRUE)[nb_pixel_color]
+  nb_in_group <- length(group_i)
+  sum_theta_group[[1]][sum_theta_group[[1]] < 0.6 * nb_in_group] <- NA
+  sum_theta_group_sf <- st_as_sf(sum_theta_group)
+  write_stars(st_crop(read_stars(here("output", "species_turnover.tif")), sum_theta_group_sf),
+              dsn = here("output", "classification", "species_group.tif"))
   
+  plotRGB(terra::rast(here("output", "classification", "species_group.tif")), main = paste0("Main area of species from group ", i))
+  RGB_map <- read_stars(here("output", "species_turnover.tif"))
+  R <- RGB_map[[1]][,,1]
+  G <- RGB_map[[1]][,,2]
+  B <- RGB_map[[1]][,,3]
+  # get values for each band RGB
+  R <- R[!is.na(sum_theta_group[[1]])]
+  G <- G[!is.na(sum_theta_group[[1]])]
+  B <- B[!is.na(sum_theta_group[[1]])]
+  
+  # Find nearest color of mean color
+  mindist <- which.min(sum(colMeans(cbind(R, G, B))^2) - rowSums(cbind(R, G, B)^2))
+
+  R_near <- R[mindist] 
+  G_near <- G[mindist]
+  B_near <- B[mindist] 
+  col_group[i, ] <- c(R_near, G_near, B_near)
+  hex_color[i] <- rgb(red = col_group[i,1], green = col_group[i,2], blue = col_group[i,3], maxColorValue = 255)
 }
 
+ggplot() +
+  geom_spatial_rgb(data = terra::rast(here("output", "species_turnover.tif")), 
+                   aes(x = x, y = y, r = red, g = green, b = blue)) +
+  geom_label(aes(x = 200000, y = 260000, label = "Group 1", size = 5), fill = hex_color[1]) +
+  geom_label(aes(x = 200000, y = 245000, label = "Group 2", size = 5), fill = hex_color[2]) +
+  geom_label(aes(x = 200000, y = 230000, label = "Group 3", size = 5), fill = hex_color[3]) +
+  geom_label(aes(x = 200000, y = 215000, label = "Group 4", size = 5), fill = hex_color[4]) +
+  geom_label(aes(x = 200000, y = 200000, label = "Group 5", size = 5), fill = hex_color[5]) +
+  theme_bw() +
+  theme(legend.position = "none")
+
+# sum(!is.na(read_stars(here("output", "classification", "theta_group_1.tif"))[[1]])) = 6548
