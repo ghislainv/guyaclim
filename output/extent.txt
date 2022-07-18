@@ -1,2 +1,2 @@
-Extent of GUF in EPSG:2972
-xmin: 100000, ymin: 230000, xmax: 438000, ymax: 642000
+Extent of NCL in EPSG:3163
+xmin: -684000, ymin: 112000, xmax: 1054000, ymax: 747000

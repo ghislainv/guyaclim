@@ -68,11 +68,11 @@ for (j in 1:nb_class) {
 }
 print(KM_class$size)
 
-##=================
+##================
 ##
 ## Comparaison between EM, KM and PCA
 ##
-##=================
+##================
 
 ## EM -> KM
 similarity_EM_KM <- matrix(0, ncol = nb_class, nrow = 4)
@@ -182,11 +182,11 @@ for (j in 1:nb_class) {
 }
 print(similarity_KM_PCA)
 
-##===============
+##================
 ##
 ## get species who are always in same group
 ##
-##===============
+##================
 print(similarity_EM_KM)
 print(similarity_KM_EM)
 print(similarity_PCA_KM)
@@ -229,11 +229,11 @@ sum(nb_species_by_group)
 #   }
 # }
 
-##===================
+##================
 ##
 ## Color of each group 
 ##
-##===================
+##================
 
 npart <- 30
 nb_pixel_color <- 600
@@ -296,3 +296,21 @@ ggplot() +
   theme(legend.position = "none")
 
 # sum(!is.na(read_stars(here("output", "classification", "theta_group_1.tif"))[[1]])) = 6548
+
+##================
+##
+## CAH on probabilities for each species and each pixels
+##
+##================
+
+list_theta <- list.files(here("output", "theta"), pattern = "RST_theta_forest", full.names = TRUE)
+load(here("output", "cell.RData"))
+PA <- read.csv2(here("data_raw", "NCpippn", "Presence_Absence.csv"), sep = ",")
+PA$X <- NULL
+prob_all <- matrix(0, ncol = dim(PA)[2], nrow = dim(cell)[1])
+for (j in 1:length(list_theta)) {
+  theta <- read_stars(list_theta[j])[[1]]
+  for (i in 1:dim(cell)[1]) {
+    prob_all[i, (1 + dim(theta)[3] * (j - 1)): min(dim(theta)[3] * j, dim(PA)[2])] <- theta[cell[j, 1], cell[j, 2], ]
+  }
+}

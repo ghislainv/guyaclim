@@ -21,6 +21,7 @@ library(RColorBrewer)
 library(terrainr)
 library(ggtern)
 library(matrixStats)
+library(EMCluster)
 
 set.seed(1234)
 EPSG <- 3163
@@ -32,12 +33,10 @@ PA$X <- NULL
 Ab <- read.csv2(here("data_raw", "NCpippn", "Abondance.csv"), sep = ",")
 Ab$X <- NULL
 dir.create(here("output", "plot"))
-# Remove Ouvéa, Livou and Nécé islands
-border <- split(read_stars(here("output", "environNC.tif")))[1,,]
-border[[1]][1100:1706,1:400] <- NA
-border[[1]][1200:1706,1:570] <- NA
-border[[1]][!is.na(border[[1]])] <- 1 
-border <- st_as_sf(border)
+
+# Keep only Grande Terre ie main island
+border <- read_sf(here("data_raw", "Grande_Terre", "Grande_Terre.shp"))[1]
+border <- st_transform(border, EPSG)
 
 # Merge climate and environ in one tif file
 
@@ -61,8 +60,7 @@ dataF <- merge(dataF)
 dataF <- split(st_apply(dataF, "attributes", scale))
 dataF <- c(data[1,,], dataF[2:11,,])
 dataF <- st_crop(dataF, border)
-write_stars(merge(dataF), dsn = here("output", "jSDM_data_final.tif"), 
-            options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat)
+write_stars(merge(dataF), dsn = here("output", "jSDM_data_final.tif"), options = c("COMPRESS=LZW","PREDICTOR=2"), NA_value = nodat)
 unlink(here("output", "jSDM_data_model_original.tif"))
 rm(jSDM_data_model_square, jSDM_data_model_original)
 
@@ -315,9 +313,6 @@ ggplot(data = NC) +
   theme(plot.title = element_text(hjust = 0.5))
 ggsave(here("output", "plot", "Observed_occurences.png"))
 
-# Reel extent in lat/long
-# xlim = c(155.86889648, 172.09008789 ), ylim = c(-22.84805679, -17.39916611)
-
 data_theta <- data.frame(coord[,c("longitude", "latitude")])
 data_theta$theta <- jSDM_binom_pro$theta_latent[, species_to_plot]
 
@@ -428,8 +423,9 @@ system(glue('r.out.gdal --overwrite input=alpha_rst \\
              createopt="compress=lzw,predictor=2"'))
 
 # Representation
-alpha_in <- read_stars(here("output", "alphas.tif"))
-plot(st_crop(alpha_in, border), main = "Site effect alpha interpolated by RST")
+alpha_in <- st_crop(read_stars(here("output", "alphas.tif")), border)
+write_stars(alpha_in, dsn = here("output", "alphas.tif"), options = c("COMPRESS=LZW", "PREDICTOR=2"))
+plot(alpha_in, main = "Site effect alpha interpolated by RST")
 alpha_xy <- rep(0, dim(coord)[1])
 for (i in 1:dim(coord)[1]) 
 {
@@ -459,8 +455,9 @@ system(glue('r.out.gdal --overwrite input=W1_rst \\
              output={here("output", "lv_W1.tif")} type=Float32 \\
              createopt="compress=lzw,predictor=2"'))
 # Representation
-W1_in <- read_stars(here("output", "lv_W1.tif"))
-plot(st_crop(W1_in, border), main = "Latent variable W1 interpolated by RST")
+W1_in <- st_crop(read_stars(here("output", "lv_W1.tif")), border)
+write_stars(W1_in, dsn = here("output", "lv_W1.tif"), options = c("COMPRESS=LZW", "PREDICTOR=2"))
+plot(W1_in, main = "Latent variable W1 interpolated by RST")
 W1_xy <- rep(0, dim(coord)[1])
 for (i in 1:dim(coord)[1]) 
 {
@@ -490,8 +487,9 @@ system(glue('r.out.gdal --overwrite input=W2_rst \\
              output={here("output", "lv_W2.tif")} type=Float32 \\
              createopt="compress=lzw,predictor=2"'))
 # Representation
-W2_in <- read_stars(here("output", "lv_W2.tif"))
-plot(st_crop(W2_in, border), main = "Latent variable W2 interpolated by RST")
+W2_in <- st_crop(read_stars(here("output", "lv_W2.tif")), border)
+write_stars(W2_in, dsn = here("output", "lv_W2.tif"), options = c("COMPRESS=LZW", "PREDICTOR=2"))
+plot(W2_in, main = "Latent variable W2 interpolated by RST")
 W2_xy <- rep(0, dim(coord)[1])
 for (i in 1:dim(coord)[1]) 
 {
@@ -598,10 +596,15 @@ predfun <- function(scaled_clim_var, params_species, rst_alpha, rst_W1, rst_W2, 
 
 Sys.time() # 14 min to run 
 # Compute theta in n parts because it's too large
+
+# only compute on forest but not on mangrove (altitude > 10)
+elevation <- st_crop(read_stars(here("data_raw", "srtm_v1_4_90m", "elevation_1km.tif")), border)
+elevation[[1]][elevation[[1]] < 10] <- NA
 forest <- split(read_stars(here("output", "environNC.tif")))[1,,]
 forest[forest < 50] <- NA
+# crop forest on elevation more than 10m
+forest <- st_crop(st_crop(forest, elevation), border)
 forest <- st_as_sf(forest)
-# write_stars(forest, dsn = here("output", "forest_binary.tif"), options = c("COMPRESS=LZW", "PREDICTOR=2"))
 
 dir.create(here("output", "theta"))
 first.species <- seq(1, nsp, by = floor(nsp / npart) + 1)
@@ -634,7 +637,7 @@ Sys.time()
 ##====================
 
 species_to_plot <- 1644
-theta <- read_stars(here("output", "theta", "RST_theta_01.tif"))
+theta <- read_stars(here("output", "theta", "RST_theta_forest_01.tif"))
 latlong <- read.csv2(here("data_raw", "NCpippn", "coord_site.csv"), sep = ",")
 latlong$X <- NULL
 coord <- matrix(as.numeric(unlist(latlong)), nrow = nrow(latlong))[,2:3]
@@ -648,7 +651,7 @@ obs_pres <- st_as_sf(obs_pres, coords = c("long", "lat"), crs = 3163)
 
 # Plotting for one specie
 ggplot() + 
-  geom_stars(data = theta[,800:1300,200:570,1]) +
+  geom_stars(data = theta) +
   ggtitle(paste('Interpolated current probabilities of presence \n for', name_species)) +
   # geom_sf(data = obs_pres, shape = 3, color = "white", size = 2) 
   scale_fill_gradientn(colours = rev(rocket(5)), na.value = "transparent") +
@@ -664,39 +667,24 @@ ggsave(here("output", "plot", "interpolated_presence_for_acropogon_NC.png"))
 ##
 ##=============
 
-list_theta <- list.files(here("output", "theta"), pattern = "RST_theta_", full.names = TRUE)
+list_theta <- list.files(here("output", "theta"), pattern = "RST_theta_forest", full.names = TRUE)
 theta_sum <- sum(rast(list_theta[1]))
 for (i in list_theta[2:npart])
 {
  theta_sum <- theta_sum + sum(terra::rast(i))
 }
-write_stars(theta_sum, here("output", "theta_sum.tif"), overwrite = TRUE)
-theta_sum <- read_stars(here("output", "theta_sum.tif"))
+terra::writeRaster(theta_sum, here("output", "theta_forest_sum.tif"), overwrite = TRUE)
+theta_sum <- read_stars(here("output", "theta_forest_sum.tif"))
 
 ggplot() + 
-  geom_stars(data = theta_sum[,800:1300,200:570]) +
+  geom_stars(data = theta_sum) +
   ggtitle("Estimated current species richness") +
   scale_fill_gradientn(colours = rev(rocket(5)), na.value = "transparent") +
   coord_fixed() +
   theme_bw() +
   labs(fill = "Number of species") + 
   theme(plot.title = element_text(hjust = 0.5))
-ggsave(here("output", "plot", "estimated_species_richness_NC.png"))  
-
-# forest <- read_stars(here("output", "forest_binary.tif"))
-theta_forest <- theta_sum
-theta_forest <- st_crop(theta_forest, forest)
-write_stars(theta_forest, here("output", "theta_sum_forest.tif"))
-
-ggplot() + 
-  geom_stars(data = theta_forest[,800:1300,200:570]) +
-  ggtitle("Estimated current species richness on forest area") +
-  coord_fixed() +
-  scale_fill_gradientn(colours = rev(rocket(5)), na.value = "transparent") +
-  theme_bw() + 
-  labs(fill = "Number of species") +
-  theme(plot.title = element_text(hjust = 0.5))
-ggsave(here("output", "plot", "estimated_richness_species_forest.png"))
+ggsave(here("output", "plot", "estimated_species_richness_forest.png"))  
 
 ##===============
 ##
@@ -705,17 +693,15 @@ ggsave(here("output", "plot", "estimated_richness_species_forest.png"))
 ## PCA
 ##===============
 
-
-
-## TEST PCA
 Sys.time()
 # get all cells for PCA
 theta_stars <- read_stars(here("output", "theta", "RST_theta_forest_01.tif"))[[1]]
+ultramafic <- st_crop(read_stars(here("output", "environ_allNC.tif"))[,,,15], border)[[1]]
 theta <- terra::rast(here("output", "theta", "RST_theta_forest_01.tif"))
 nb_cell <- dim(values(theta, na.rm = TRUE))
 theta_matrix <- matrix(0, nrow = nb_cell[1], ncol = nb_cell[2])
 cell <- matrix(0, ncol = 2, nrow = dim(theta_matrix)[1])
-
+UM <- rep(-1, dim(theta_matrix)[1])
 increment <- 1
 for (x in 1:dim(theta_stars)[1])
 {
@@ -725,10 +711,12 @@ for (x in 1:dim(theta_stars)[1])
     {
       cell[increment,] <- c(x, y)
       theta_matrix[increment,] <- theta_stars[x,y,]
+      UM[increment] <- ultramafic[x, y, 1]
       increment <- increment + 1
     }
   }
 }
+save(cell, file = here("output", "cell.RData"))
 
 # get position of each cell
 npart <- 30
@@ -761,20 +749,25 @@ rm(theta_matrix_k)
 theta_df <- data.frame(theta_matrix)
 # keep axis while explained variance is more than 1% (6 in this case)
 pca_theta <- ade4::dudi.pca(theta_df, center = TRUE, scale = TRUE, nf = 6, scannf = FALSE)
-save(pca_theta, samp_cells, file = here("output", "PCA_theta.RData"))
+save(pca_theta, file = here("output", "PCA_theta.RData"))
 png(here("output", "plot", "PCA_explained_variances.png"))
 fviz_eig(pca_theta)
 dev.off()
 print(paste0("Explained variances by first six axis : ", round(sum(fviz_eig(pca_theta)$data[1:6,2])), "%"))
 
-# CAH on site to classify pixels
+col <- UM
+col[col == 1] <- "Ultramafic"
+col[col == 0] <- "non Ultramafic"
+fviz_pca_ind(pca_theta, axes = c(2, 3), pointshape = 21, fill = col, labels = FALSE, alpha = 0.6,
+             legend.title = "Type of soil", title = "PCA : soil area")
 
+# CAH on site to classify pixels
 dist_site <- dist(get_pca_ind(pca_theta)$coord, method = "euclidian")
 png(here("output", "plot", "dendo_ACP.png"))
 plot(hclust(dist_site), labels = FALSE) 
 dev.off()
 # 5 or 7 groups
-nb_class <- 7
+nb_class <- 5
 PCA_site_group <- cutree(hclust(dist_site), k = nb_class)
 table(PCA_site_group)
 rm(dist_site)
@@ -785,6 +778,11 @@ init_EM <- rand.EM(get_pca_ind(pca_theta)$coord, nclass = nb_class, min.n = 10)
 EM_class <- assign.class(get_pca_ind(pca_theta)$coord, emcluster(get_pca_ind(pca_theta)$coord, init_EM))
 EM_group <- EM_class$class
 print(table(EM_group))
+
+nb_class <- 5
+KM_class <- kmeans(get_pca_ind(pca_theta)$coord, centers = nb_class, iter.max = 20, nstart = 1000)
+KM_group <- KM_class$cluster
+print(KM_class$size)
 
 # Change the coordinate scale for [0.255]. 
 # init stars object with CRS, extent, NA,...
@@ -799,7 +797,7 @@ for (l in 1:3) {
 # mean color of each group are too similar
 # take rocket palette instead
 color_group <- matrix(-1, nrow = nb_class, ncol = 3)
-color_group_hex <- rocket(nb_class + 2)
+color_group_hex <- c("red", "blue", "darkgreen", "orange", "purple")  #rocket(nb_class + 2)
 color_group <- t(col2rgb(color_group_hex))
 # color_group_hex <- rep(0, nb_class)
 # for (group in 1:nb_class) {
@@ -824,9 +822,9 @@ for (i in 1:dim(get_pca_ind(pca_theta)$coord[,1:3])[1]){
 }
 
 # Coloration RGB
-write_stars(rastRGB[,800:1300,200:570], dsn = here("output", "RGB_forest.tif"), 
+write_stars(rastRGB, dsn = here("output", "RGB_forest.tif"), 
             options = c("COMPRESS=LZW", "PREDICTOR=2"))
-write_stars(rastRGB_group[,800:1300,200:570], dsn = here("output", "RGB_group_forest.tif"),
+write_stars(rastRGB_group, dsn = here("output", "RGB_group_forest.tif"),
             options = c("COMPRESS=LZW", "PREDICTOR=2"))
 
 ##================
@@ -855,11 +853,11 @@ dev.off()
 
 png(here("output", "plot", "RGB_group_forest.png"))
 par(mfrow = c(1, 1))
-plotRGB(RGB_forest_group, stretch = "hist")
+plotRGB(RGB_forest_group)
 title(main = "Group of similar pixel ",
       cex.main = 1.5, line = -2)
 legend("bottomleft", inset = .1, title = "Mean color of each group",
-       c("Group 1", "Group 2", "Group 3", "Group 4", "Group 5", "Group 6", "Group 7"),
+       c("Group 1", "Group 2", "Group 3", "Group 4", "Group 5"),
        fill = color_group_hex, horiz = FALSE, cex = 0.8)
 dev.off()
 
@@ -885,7 +883,7 @@ max_species_group <- matrix(0, nrow = nb_class * 3, ncol = 20)
 min_species_group <- matrix(0, nrow = nb_class * 3, ncol = 20) 
 data_clear <- read.csv2(here("data_raw", "NCpippn", "data_clear.csv"), sep =",")
 names(theta_matrix) <- params_species$species
-names(species_group) <- params_species$species 
+# names(species_group) <- params_species$species 
 colmax <- rep(0, 20)
 colmin <- rep(0, 20)
 for (h in 1:nb_class)
@@ -1008,15 +1006,20 @@ ggplot(data = NC) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
 
+##=================
+##
+## Check if variables are usefull
+##
+##=================
 
-
-
-
-############# TEST site in forest ? 
-## 63% in forest
-a <- rep(0,dim(coord)[1])
-for (i in 1:dim(coord)[1]) 
-{
-  a[i] <- as.numeric(system(glue('gdallocationinfo -l_srs {proj.t} -valonly {here("data_raw", "tmf_ec_jrc", "TMF_20_160_1km%.tif")} \\
-                                             -wgs84 {coord[i,1]} {coord[i,2]}'), intern = TRUE))[1]
+beta_check <- matrix(0, ncol = dim(jSDM_binom_pro$model_spec$site_data)[2] + 1 + jSDM_binom_pro$model_spec$n_latent, nrow = dim(PA)[2])
+names(beta_check) <- c("beta_(Intercept)", "beta_ultramafic", "beta_bio1", "beta_bio4", "beta_bio12", "beta_bio15", "beta_cwd", "beta_bio1^2",
+                       "beta_bio4^2", "beta_bio12^2", "beta_bio15^2", "beta_cwd^2", "beta_log(aire)", "lambda_1", "lambda_2")
+for (i in 1:dim(PA)[2]){
+  beta_check[i, ] <- colMeans(jSDM_binom_pro$mcmc.sp[[i]])
+}
+# variable's coef are differents for each species ie all variables have effect on prediction
+for (j in 1:ncol(beta_check)) {
+  print(names(beta_check)[j])
+  print(summary(beta_check[,j]))
 }
