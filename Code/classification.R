@@ -17,7 +17,7 @@ dir.create(here("output", "classification"))
 ## determine number of class
 ##================
 dist_col <- dist(pca_theta$co)
-plot(hclust(dist_col), labels = FALSE) # 5 groupes
+plot(hclust(dist_col), labels = FALSE) # 5 groups
 nb_class <- 5
 PCA_group <- cutree(hclust(dist_col), k = nb_class)
 data_clear <- read.csv2(here("data_raw", "NCpippn", "data_clear.csv"), sep =",")
@@ -314,3 +314,15 @@ for (j in 1:length(list_theta)) {
     prob_all[i, (1 + dim(theta)[3] * (j - 1)): min(dim(theta)[3] * j, dim(PA)[2])] <- theta[cell[j, 1], cell[j, 2], ]
   }
 }
+# CAH isn't working
+nb_class <- 5
+init_EM <- rand.EM(prob_all, nclass = nb_class, min.n = 10)
+EM_class <- assign.class(prob_all, emcluster(prob_all, init_EM))
+EM_group <- EM_class$class
+names(EM_group) <- rownames(prob_all)
+data_clear <- read.csv2(here("data_raw", "NCpippn", "data_clear.csv"), sep =",")
+for (j in 1:nb_class) {
+  group <- names(EM_group)[EM_group == j]
+}
+print(table(EM_group))
+Sys.time()

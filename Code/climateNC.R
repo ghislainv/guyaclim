@@ -193,6 +193,7 @@ system(glue('gdal_merge.py -o {here("output", "current_chelsaNC.tif")} -of GTiff
             {here("data_raw", "chelsa_v2_1", "cwd_1km.tif")} {here("data_raw", "chelsa_v2_1", "ndm_1km.tif")}'))
 
 
-write_stars(obj = st_crop(read_stars(here("output", "current_chelsaNC.tif")), border),
-            options = c("COMPRESS=LZW","PREDICTOR=2"), type = "Int16",
+current <- split(st_crop(read_stars(here("output", "current_chelsaNC.tif")), border))
+names(current) <- c(names(split(read_stars(here("data_raw", "chelsa_v2_1", "clim_1km.tif")))), "cwd", "ndm")
+write_stars(obj = merge(current), options = c("COMPRESS=LZW","PREDICTOR=2"), type = "Int16",
             NA_value = nodat, dsn = here("output", "current_chelsaNC.tif"))
